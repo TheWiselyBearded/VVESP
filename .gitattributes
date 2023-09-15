@@ -1,0 +1,2 @@
+Assets/Dev.unity filter=lfs diff=lfs merge=lfs -text
+Assets/LiveStreaming.unity filter=lfs diff=lfs merge=lfs -text
