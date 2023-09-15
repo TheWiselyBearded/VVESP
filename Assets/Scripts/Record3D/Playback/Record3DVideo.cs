@@ -102,6 +102,7 @@ public class Record3DVideo
 
         // Decompress the LZFSE depth data into a byte buffer
         //byte[] lzfseDepthBuffer;
+        
         using (var lzfseDepthStream = underlyingZip_.GetEntry(String.Format("rgbd/{0}.depth", frameIdx)).Open())
         {
             //lzfseDepthStream.CopyTo(depthStream);
@@ -112,6 +113,9 @@ public class Record3DVideo
                 lzfseDepthBuffer = memoryStream.GetBuffer();
                 //Debug.Log($"Record3DVideo::Size of depth buffer {lzfseDepthBuffer.Length}");
             }
+            
+            //if (lzfseDepthBuffer == null) lzfseDepthBuffer = new byte[57636];
+            //lzfseDepthStream.Read(lzfseDepthBuffer);
         }
 
         // Decompress the JPG image into a byte buffer
