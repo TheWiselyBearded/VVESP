@@ -10,7 +10,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Timers;
-
+using UnityEngine.Networking;
 
 public class Record3DVideo
 {
@@ -59,11 +59,58 @@ public class Record3DVideo
     [DllImport(LIBRARY_NAME)]
     private static extern void DecompressFrame(byte[] jpgBytes, UInt32 jpgBytesSize, byte[] lzfseDepthBytes, UInt32 lzfseBytesSize, byte[] rgbBuffer, float[] poseBuffer, Int32 width, Int32 height, float fx, float fy, float tx, float ty);
 
+    public Record3DVideo() {
+        /*string path = Path.Combine(Application.streamingAssetsPath, "momcouch.r3d");
+        var loadingRequest = UnityWebRequest.Get(path);
+        loadingRequest.SendWebRequest();
+        while (!loadingRequest.isDone && !loadingRequest.isNetworkError && !loadingRequest.isHttpError) ;
+        string result = System.Text.Encoding.UTF8.GetString(loadingRequest.downloadHandler.data);
+        Debug.Log($"RESULT {result}");*/
+
+        /*string filePath = Path.Combine("jar:file://" + Application.dataPath + "!assets/", "momcouch.r3d");
+        Debug.Log($"ATTEMPT {filePath}");
+        var www = new WWW(filePath);
+        //yield return www;
+        if (!string.IsNullOrEmpty(www.error)) {
+            Debug.LogError("Can't read");
+        }
+        Debug.Log($"FILEPATH {filePath}");*/
+
+        //currentVideo_ = new Record3DVideo(path);        
+        string[] d = BetterStreamingAssets.GetFiles("\\", "momcouch.r3d", SearchOption.AllDirectories);
+        underlyingZip_ = ZipFile.Open(d[0], ZipArchiveMode.Read);
+        
+
+        // Load metadata (FPS, the intrinsic matrix, dimensions)
+        using (var metadataStream = new StreamReader(underlyingZip_.GetEntry("metadata").Open())) {
+            string jsonContents = metadataStream.ReadToEnd();
+            Record3DMetadata parsedMetadata = (Record3DVideo.Record3DMetadata)JsonUtility.FromJson(jsonContents, typeof(Record3DMetadata));
+
+            // Initialize properties
+            this.fps_ = parsedMetadata.fps;
+            this.width_ = parsedMetadata.w;
+            this.height_ = parsedMetadata.h;
+
+            // Init the intrinsic matrix coeffs
+            this.fx_ = parsedMetadata.K[0];
+            this.fy_ = parsedMetadata.K[4];
+            this.tx_ = parsedMetadata.K[6];
+            this.ty_ = parsedMetadata.K[7];
+        }
+
+        this.numFrames_ = underlyingZip_.Entries.Count(x => x.FullName.Contains(".depth"));
+        //Debug.Log(String.Format("# Available Frames: {0}", this.numFrames_));
+
+        rgbBuffer = new byte[width * height * 3];
+        positionsBuffer = new float[width * height * 4];
+        //string p = "jar:file://" + Application.dataPath + "!/assets/momcouch.r3d";
+
+    }
+
 
     public Record3DVideo(string filepath)
     {
         underlyingZip_ = ZipFile.Open(filepath, ZipArchiveMode.Read);
-
         // Load metadata (FPS, the intrinsic matrix, dimensions)
         using (var metadataStream = new StreamReader(underlyingZip_.GetEntry("metadata").Open()))
         {

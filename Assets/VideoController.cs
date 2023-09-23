@@ -11,6 +11,7 @@ public class VideoController : MonoBehaviour
     {
         Application.targetFrameRate = 30;
         if (videoPlayer == null) videoPlayer = FindObjectOfType<Record3DPlayback>(); // gameObject.GetComponent<Record3DPlayback>();
+        //videoPlayer.LoadFrame(10);
         //InvokeRepeating("NextFrame", 1.0f, 0.03f);
         //InvokeRepeating("NextFrame", 1.0f, 0.1f);
     }
@@ -25,8 +26,11 @@ public class VideoController : MonoBehaviour
     }
 
     public void NextFrame() {
+        //Debug.Log("Begin next frame");
+        if (frameCounter > videoPlayer.numberOfFrames) frameCounter = 0;
         videoPlayer.LoadFrame(frameCounter);
         frameCounter++;
+        //Debug.Log("complete next frame");
     }
 
 }

@@ -10,6 +10,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Timers;
+using UnityEngine.Networking;
 
 
 //[ExecuteInEditMode]
@@ -60,12 +61,12 @@ public partial class Record3DPlayback : MonoBehaviour
 
     void Update()
     {
-        if (isPlaying_ && (currentVideo_ != null) && shouldRefresh_)
+        /*if (isPlaying_ && (currentVideo_ != null) && shouldRefresh_)
         {
             shouldRefresh_ = false;
             LoadFrame(currentFrame_);
             currentFrame_ = (currentFrame_ + 1) % currentVideo_.numFrames;
-        }
+        }*/
     }
 
     public void OnTimerTick(object sender, ElapsedEventArgs e)
@@ -127,6 +128,60 @@ public partial class Record3DPlayback
         lastLoadedVideoPath_ = path;
     }
 
+    public void LoadVid() {
+        BetterStreamingAssets.Initialize();
+        /*string path;
+        string streamingAssetsPath = Application.streamingAssetsPath;
+        path = Path.Combine(streamingAssetsPath, "momcouch.r3d");
+        currentVideo_ = new Record3DVideo(path);
+        ReinitializeTextures(currentVideo_.width, currentVideo_.height);
+        // Reset the playback and load timer
+        currentFrame_ = 0;
+        videoFrameUpdateTimer_ = new Timer(1000.0 / currentVideo_.fps);
+        videoFrameUpdateTimer_.AutoReset = true;
+        videoFrameUpdateTimer_.Elapsed += this.OnTimerTick;
+        lastLoadedVideoPath_ = path;*/
+
+        /*var loadingRequest = UnityWebRequest.Get(Path.Combine(Application.streamingAssetsPath, "momcouch.r3d"));
+        loadingRequest.SendWebRequest();
+        while (!loadingRequest.isDone) {
+            if (loadingRequest.isNetworkError || loadingRequest.isHttpError) {
+                break;
+            }
+        }
+        if (loadingRequest.isNetworkError || loadingRequest.isHttpError) {
+
+        } else {
+            //currentVideo_ = new Record3DVideo(path);
+            string p = "jar:file://" + Application.dataPath + "!/assets/momcouch.r3d";
+            currentVideo_ = new Record3DVideo(p);
+            ReinitializeTextures(currentVideo_.width, currentVideo_.height);
+
+            // Reset the playback and load timer
+            currentFrame_ = 0;
+            videoFrameUpdateTimer_ = new Timer(1000.0 / currentVideo_.fps);
+            videoFrameUpdateTimer_.AutoReset = true;
+            videoFrameUpdateTimer_.Elapsed += this.OnTimerTick;
+
+
+            lastLoadedVideoPath_ = p;
+        }*/
+
+        //string p = "jar:file://" + Application.dataPath + "!/assets/momcouch.r3d";
+        //currentVideo_ = new Record3DVideo(p);
+        currentVideo_ = new Record3DVideo();
+        ReinitializeTextures(currentVideo_.width, currentVideo_.height);
+
+        // Reset the playback and load timer
+        currentFrame_ = 0;
+        videoFrameUpdateTimer_ = new Timer(1000.0 / currentVideo_.fps);
+        videoFrameUpdateTimer_.AutoReset = true;
+        videoFrameUpdateTimer_.Elapsed += this.OnTimerTick;
+
+
+        //lastLoadedVideoPath_ = p;
+    }
+
     public void Pause()
     {
         isPlaying_ = false;
@@ -150,9 +205,10 @@ public partial class Record3DPlayback
     public void LoadFrame(int frameNumber)
     {
         // Load the data from the archive
-        ReloadVideoIfNeeded();
+        //ReloadVideoIfNeeded(); // EDIT
+        LoadVid();
 
-        if (streamEffect)
+        //if (streamEffect)
 
         currentVideo_.LoadFrameData(frameNumber);
         currentFrame_ = frameNumber;
