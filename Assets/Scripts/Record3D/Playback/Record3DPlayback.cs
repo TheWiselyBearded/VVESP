@@ -30,6 +30,7 @@ public partial class Record3DPlayback : MonoBehaviour
     private bool shouldRefresh_ = false;
     private string lastLoadedVideoPath_ = null;
     public int numParticles;
+    public ZipArchive zipArchive;
 
     void ReinitializeTextures(int width, int height)
     {
@@ -82,7 +83,7 @@ public partial class Record3DPlayback
     {
         get
         {
-            ReloadVideoIfNeeded();
+            //ReloadVideoIfNeeded();
             return currentVideo_ == null ? 1 : currentVideo_.numFrames;
         }
     }
@@ -91,7 +92,7 @@ public partial class Record3DPlayback
     {
         get
         {
-            ReloadVideoIfNeeded();
+            //ReloadVideoIfNeeded();
             return currentVideo_ == null ? 1 : currentVideo_.fps;
         }
     }
@@ -129,7 +130,7 @@ public partial class Record3DPlayback
     }
 
     public void LoadVid() {
-        BetterStreamingAssets.Initialize();
+        //BetterStreamingAssets.Initialize();
         /*string path;
         string streamingAssetsPath = Application.streamingAssetsPath;
         path = Path.Combine(streamingAssetsPath, "momcouch.r3d");
@@ -169,7 +170,7 @@ public partial class Record3DPlayback
 
         //string p = "jar:file://" + Application.dataPath + "!/assets/momcouch.r3d";
         //currentVideo_ = new Record3DVideo(p);
-        currentVideo_ = new Record3DVideo();
+        currentVideo_ = new Record3DVideo(zipArchive);
         ReinitializeTextures(currentVideo_.width, currentVideo_.height);
 
         // Reset the playback and load timer
@@ -202,29 +203,32 @@ public partial class Record3DPlayback
         }
     }
 
+    public bool saveToDisk = false;
+    public bool loadData = true;
     public void LoadFrame(int frameNumber)
-    {
-        // Load the data from the archive
-        //ReloadVideoIfNeeded(); // EDIT
-        LoadVid();
+    {                
+        ReloadVideoIfNeeded(); // EDIT    // Load the data from the archive
+        //if (currentVideo_ == null) LoadVid();
 
         //if (streamEffect)
 
         currentVideo_.LoadFrameData(frameNumber);
         currentFrame_ = frameNumber;
 
-        // Update the textures
-        var positionTexBufferSize = positionTex.width * positionTex.height * 4;
-        NativeArray<float>.Copy(currentVideo_.positionsBuffer, positionTex.GetRawTextureData<float>(), positionTexBufferSize);
-        positionTex.Apply(false, false);
+        LoadFrameDataLocal(frameNumber);
+        LoadColorDataLocal(frameNumber);
 
-        const int numRGBChannels = 3;
-        var colorTexBufferSize = colorTex.width * colorTex.height * numRGBChannels * sizeof(byte);
+        //var positionTexBufferSize = positionTex.width * positionTex.height * 4;
+        //NativeArray<float>.Copy(currentVideo_.positionsBuffer, positionTex.GetRawTextureData<float>(), positionTexBufferSize);
+        //positionTex.Apply(false, false);        
 
-        NativeArray<byte>.Copy(currentVideo_.rgbBuffer, colorTex.GetRawTextureData<byte>(), colorTexBufferSize);
-        colorTex.Apply(false, false);
+        //const int numRGBChannels = 3;
+        //var colorTexBufferSize = colorTex.width * colorTex.height * numRGBChannels * sizeof(byte);
+        //NativeArray<byte>.Copy(currentVideo_.rgbBuffer, colorTex.GetRawTextureData<byte>(), colorTexBufferSize);
+        //colorTex.Apply(false, false);
 
-
+        //SaveFloatArrayToDisk(currentVideo_.positionsBuffer, frameNumber);
+        //SaveColorArrayToDisk(currentVideo_.rgbBuffer, frameNumber);
 
         /*// Assuming dirtyRect is a Rect that contains the area of the texture that needs updating
         Rect dirtyRect = new Rect(100, 100, 300, 300);        
@@ -237,4 +241,72 @@ public partial class Record3DPlayback
         // Dispose of the temporary NativeArray
         tempArray.Dispose();*/
     }
+
+    public void LoadFrameDataLocal(int frameNumber) {
+        string depthFileName = $"dev/d{frameNumber}.bytes";
+        string depthFilePath = Path.Combine(Application.streamingAssetsPath, depthFileName);
+
+        // Check if the color file exists
+        if (File.Exists(depthFilePath)) {
+            byte[] byteArray = File.ReadAllBytes(depthFilePath);
+            int numFloats = byteArray.Length / sizeof(float);
+            float[] floatArray = new float[numFloats];
+            System.Buffer.BlockCopy(byteArray, 0, floatArray, 0, byteArray.Length);
+
+            var positionTexBufferSize = positionTex.width * positionTex.height * 4;
+            NativeArray<float>.Copy(floatArray, positionTex.GetRawTextureData<float>(), positionTexBufferSize);
+            positionTex.Apply(false, false);
+            
+            Debug.Log($"Size of float array {floatArray.Length}");
+        }
+    }
+
+    public void LoadColorDataLocal(int frameNumber) {
+        string colorFileName = $"dev/c{frameNumber}.bytes";
+        string colorFilePath = Path.Combine(Application.streamingAssetsPath, colorFileName);
+
+        // Check if the color file exists
+        if (File.Exists(colorFilePath)) {
+            byte[] byteArray = File.ReadAllBytes(colorFilePath);
+
+            const int numRGBChannels = 3;
+            var colorTexBufferSize = colorTex.width * colorTex.height * numRGBChannels * sizeof(byte);
+
+            NativeArray<byte>.Copy(byteArray, colorTex.GetRawTextureData<byte>(), colorTexBufferSize);
+            colorTex.Apply(false, false);
+
+            Debug.Log($"Size of float array {byteArray.Length}");
+        }
+    }
+
+    public void SaveFloatArrayToDisk(float[] floatArray, int frameNumber) {
+        string fileName = $"dev/d{frameNumber}.bytes";
+        // Convert the float array to bytes
+        byte[] byteArray = new byte[floatArray.Length * sizeof(float)];
+        System.Buffer.BlockCopy(floatArray, 0, byteArray, 0, byteArray.Length);
+
+        // Define the path for saving the file (in the StreamingAssets folder)
+        string filePath = Path.Combine(Application.streamingAssetsPath, fileName);
+
+        // Write the byte data to the file
+        File.WriteAllBytes(filePath, byteArray);
+
+        Debug.Log($"Saved float array to {fileName}");
+    }
+
+    public void SaveColorArrayToDisk(byte[] colorArray, int frameNumber) {
+        string fileName = $"dev/c{frameNumber}.bytes";
+        // Convert the float array to bytes
+        byte[] byteArray = new byte[colorArray.Length];
+        System.Buffer.BlockCopy(colorArray, 0, byteArray, 0, byteArray.Length);
+
+        // Define the path for saving the file (in the StreamingAssets folder)
+        string filePath = Path.Combine(Application.streamingAssetsPath, fileName);
+
+        // Write the byte data to the file
+        File.WriteAllBytes(filePath, byteArray);
+
+        Debug.Log($"Saved color array to {fileName}");
+    }
+
 }

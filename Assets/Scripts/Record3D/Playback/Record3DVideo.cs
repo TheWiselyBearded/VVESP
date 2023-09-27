@@ -59,7 +59,7 @@ public class Record3DVideo
     [DllImport(LIBRARY_NAME)]
     private static extern void DecompressFrame(byte[] jpgBytes, UInt32 jpgBytesSize, byte[] lzfseDepthBytes, UInt32 lzfseBytesSize, byte[] rgbBuffer, float[] poseBuffer, Int32 width, Int32 height, float fx, float fy, float tx, float ty);
 
-    public Record3DVideo() {
+    public Record3DVideo(ZipArchive z) {
         /*string path = Path.Combine(Application.streamingAssetsPath, "momcouch.r3d");
         var loadingRequest = UnityWebRequest.Get(path);
         loadingRequest.SendWebRequest();
@@ -77,9 +77,10 @@ public class Record3DVideo
         Debug.Log($"FILEPATH {filePath}");*/
 
         //currentVideo_ = new Record3DVideo(path);        
-        string[] d = BetterStreamingAssets.GetFiles("\\", "momcouch.r3d", SearchOption.AllDirectories);
-        underlyingZip_ = ZipFile.Open(d[0], ZipArchiveMode.Read);
-        
+
+        //string[] d = BetterStreamingAssets.GetFiles("\\", "momcouch.r3d", SearchOption.AllDirectories);
+         // new ZipArchive( //ZipFile.Open(d[0], ZipArchiveMode.Read);
+        underlyingZip_ = z;
 
         // Load metadata (FPS, the intrinsic matrix, dimensions)
         using (var metadataStream = new StreamReader(underlyingZip_.GetEntry("metadata").Open())) {

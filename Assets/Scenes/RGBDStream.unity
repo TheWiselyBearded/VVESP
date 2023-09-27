@@ -255,6 +255,7 @@ GameObject:
   - component: {fileID: 866836087}
   - component: {fileID: 866836086}
   - component: {fileID: 866836091}
+  - component: {fileID: 866836092}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -401,13 +402,30 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 866836085}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a7f530074c0fe674ba2e2ee81fffa96b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   serverIP: 127.0.0.1
   serverPort: 12345
+  receivedTexture: {fileID: 0}
+--- !u!114 &866836092
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 866836085}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33310d0f185b34b4a8f15358d04d8155, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serverIP: 127.0.0.1
+  serverPort: 12345
+  r3dPlayback: {fileID: 0}
+  inputField: {fileID: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
