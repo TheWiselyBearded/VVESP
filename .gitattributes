@@ -5,3 +5,5 @@ Assets/Main-PC.unity filter=lfs diff=lfs merge=lfs -text
 Assets/Main-Quest.unity filter=lfs diff=lfs merge=lfs -text
 Assets/RGBD-PC.vfx filter=lfs diff=lfs merge=lfs -text
 Assets/RGBD-Quest.vfx filter=lfs diff=lfs merge=lfs -text
+Assets/Scenes/DebugVFX.unity filter=lfs diff=lfs merge=lfs -text
+Assets/Scenes/Dev.unity filter=lfs diff=lfs merge=lfs -text
