@@ -4,13 +4,13 @@ using UnityEngine;
 
 public class ConnectServer : MonoBehaviour
 {
-    public ReceiveZipFileFromServer ReceiveZipFileFromServer;
+    public ReceiveAndExtractZip ReceiveZipFileFromServer;
     public Material changed;
 
     private void OnTriggerEnter(Collider other) {
         if (other.CompareTag("Player") || other.CompareTag("MainCamera")) {
             gameObject.GetComponent<Renderer>().material = changed;
-            ReceiveZipFileFromServer.StartReceivingBtn();
+            ReceiveZipFileFromServer.ConnectedToServer();
         }
     }
 

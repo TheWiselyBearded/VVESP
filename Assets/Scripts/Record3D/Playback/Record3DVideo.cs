@@ -83,7 +83,7 @@ public class Record3DVideo
         underlyingZip_ = z;
 
         // Load metadata (FPS, the intrinsic matrix, dimensions)
-        using (var metadataStream = new StreamReader(underlyingZip_.GetEntry("metadata").Open())) {
+        using (var metadataStream = new StreamReader(underlyingZip_.GetEntry("dev/metadata").Open())) {
             string jsonContents = metadataStream.ReadToEnd();
             Record3DMetadata parsedMetadata = (Record3DVideo.Record3DMetadata)JsonUtility.FromJson(jsonContents, typeof(Record3DMetadata));
 
@@ -100,6 +100,7 @@ public class Record3DVideo
         }
 
         this.numFrames_ = underlyingZip_.Entries.Count(x => x.FullName.Contains(".depth"));
+        if (this.numFrames == 0) this.numFrames_ = (underlyingZip_.Entries.Count(x => x.FullName.Contains(".bytes")) / 2);
         //Debug.Log(String.Format("# Available Frames: {0}", this.numFrames_));
 
         rgbBuffer = new byte[width * height * 3];
@@ -178,7 +179,6 @@ public class Record3DVideo
                 jpgBuffer = memoryStream.GetBuffer();
             }
         }
-
         // Decompress the LZFSE depth map archive, create point cloud and load the JPEG image        
         DecompressFrame(jpgBuffer,
             (uint)jpgBuffer.Length,
@@ -188,5 +188,72 @@ public class Record3DVideo
             this.positionsBuffer,
             this.width_, this.height_,
             this.fx_, this.fy_, this.tx_, this.ty_);
+    }
+
+    public void LoadFrameDataUncompressed(int frameIdx) {
+        //if (frameIdx >= numFrames_) {
+        //    return;
+        //}
+
+        
+        using (var lzfseDepthStream = underlyingZip_.GetEntry(String.Format("dev/rgbd/d/d{0}.bytes", frameIdx)).Open()) {
+            using (var memoryStream = new MemoryStream()) {
+                lzfseDepthStream.CopyTo(memoryStream);
+                lzfseDepthBuffer = memoryStream.GetBuffer();
+                int numFloats = lzfseDepthBuffer.Length; // / sizeof(float);
+                if (positionsBuffer == null) positionsBuffer = new float[numFloats];
+                float[] p = ConvertByteArrayToFloatArray(lzfseDepthBuffer);
+                System.Buffer.BlockCopy(p, 0, positionsBuffer, 0, p.Length);
+                //Debug.Log($"Record3DVideo::Size of depth buffer {lzfseDepthBuffer.Length}");
+            }
+        }
+
+        // Decompress the JPG image into a byte buffer
+        using (var jpgStream = underlyingZip_.GetEntry(String.Format("dev/rgbd/c/c{0}.bytes", frameIdx)).Open()) {
+            using (var memoryStream = new MemoryStream()) {
+                jpgStream.CopyTo(memoryStream);
+                jpgBuffer = memoryStream.GetBuffer();
+                //Debug.Log($"Record3DVideo::Size of depth buffer {jpgBuffer.Length}");
+                rgbBuffer = new byte[jpgBuffer.Length];
+                Buffer.BlockCopy(jpgBuffer, 0, rgbBuffer, 0, jpgBuffer.Length);
+            }
+        }
+
+        return;
+    }
+
+    private float[] ConvertByteArrayToFloatArray(byte[] byteArray) {
+        if (byteArray.Length % sizeof(float) != 0) {
+            Debug.LogError("Byte array length is not a multiple of float size.");
+            return null;
+        }
+
+        float[] floatArray = new float[byteArray.Length / sizeof(float)];
+
+        Buffer.BlockCopy(byteArray, 0, floatArray, 0, byteArray.Length);
+
+        return floatArray;
+    }
+
+    static float InterpolateDepth(float[] depthData, float x, float y, int imgWidth, int imgHeight) {
+        int wX = (int)x;
+        int wY = (int)y;
+        float fracX = x - (float)wX;
+        float fracY = y - (float)wY;
+
+        int topLeftIdx = wY * imgWidth + wX;
+        int topRightIdx = wY * imgWidth + Math.Min(wX + 1, imgWidth - 1);
+        int bottomLeftIdx = Math.Min(wY + 1, imgHeight - 1) * imgWidth + wX;
+        int bottomRightIdx = Math.Min(wY + 1, imgHeight - 1) * imgWidth + Math.Min(wX + 1, imgWidth - 1);
+
+        float interpVal =
+            (depthData[topLeftIdx] * (1.0f - fracX) + fracX * depthData[topRightIdx]) * (1.0f - fracY) +
+            (depthData[bottomLeftIdx] * (1.0f - fracX) + fracX * depthData[bottomRightIdx]) * fracY;
+
+        return interpVal;
+    }
+
+    static void DecompressFrame(byte[] jpgBytes, byte[] lzfseDepthBytes, byte[] rgbBuffer, float[] poseBuffer, int width, int height, float fx, float fy, float tx, float ty) {
+        
     }
 }

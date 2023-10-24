@@ -23,13 +23,14 @@ public class VideoController : MonoBehaviour
     private void Update() {
 
         //if (videoPlayer.zipArchive != null) startRendering = true;
-        //if (startRendering)  NextFrame();
-        NextFrame();
+        if (startRendering)  NextFrame();
+        //NextFrame();
     }
 
     public void NextFrame() {
         //Debug.Log("Begin next frame");
         //if (frameCounter > videoPlayer.numberOfFrames) frameCounter = 0;
+        if (frameCounter > 89) frameCounter = 0;
         videoPlayer.LoadFrame(frameCounter);
         frameCounter++;
         //Debug.Log("complete next frame");

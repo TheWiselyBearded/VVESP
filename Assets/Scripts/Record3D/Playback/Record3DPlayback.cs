@@ -183,6 +183,22 @@ public partial class Record3DPlayback
         //lastLoadedVideoPath_ = p;
     }
 
+    public void LoadVid(ZipArchive za) {
+        
+        currentVideo_ = new Record3DVideo(za);
+        zipArchive = za;
+        ReinitializeTextures(currentVideo_.width, currentVideo_.height);
+
+        // Reset the playback and load timer
+        currentFrame_ = 0;
+        videoFrameUpdateTimer_ = new Timer(1000.0 / currentVideo_.fps);
+        videoFrameUpdateTimer_.AutoReset = true;
+        videoFrameUpdateTimer_.Elapsed += this.OnTimerTick;
+
+
+        //lastLoadedVideoPath_ = p;
+    }
+
     public void Pause()
     {
         isPlaying_ = false;
@@ -195,38 +211,44 @@ public partial class Record3DPlayback
         if (videoFrameUpdateTimer_ != null) videoFrameUpdateTimer_.Enabled = true;
     }
 
-    private void ReloadVideoIfNeeded()
-    {
-        if (currentVideo_ == null)
-        {
-            LoadVideo(string.IsNullOrEmpty(lastLoadedVideoPath_) ? r3dPath : lastLoadedVideoPath_, force: true);
-        }
-    }
-
     public bool saveToDisk = false;
     public bool loadData = true;
+    private void ReloadVideoIfNeeded()
+    {
+        if (currentVideo_ == null && !loadData)
+        {
+            LoadVideo(string.IsNullOrEmpty(lastLoadedVideoPath_) ? r3dPath : lastLoadedVideoPath_, force: true);
+        } else if (currentVideo_ == null && loadData) {
+            LoadVid();
+        }
+
+    }
+
     public void LoadFrame(int frameNumber)
-    {                
-        ReloadVideoIfNeeded(); // EDIT    // Load the data from the archive
+    {
+        //ReloadVideoIfNeeded(); // EDIT    // Load the data from the archive
         //if (currentVideo_ == null) LoadVid();
 
         //if (streamEffect)
-
-        currentVideo_.LoadFrameData(frameNumber);
+        //Debug.Log($"Load frame {frameNumber}");
+        //currentVideo_.LoadFrameData(frameNumber);
+        currentVideo_.LoadFrameDataUncompressed(frameNumber); // dev
         currentFrame_ = frameNumber;
 
-        LoadFrameDataLocal(frameNumber);
-        LoadColorDataLocal(frameNumber);
+        // if local pc
+        //LoadFrameDataLocal(frameNumber);
+        //LoadColorDataLocal(frameNumber);
 
-        //var positionTexBufferSize = positionTex.width * positionTex.height * 4;
-        //NativeArray<float>.Copy(currentVideo_.positionsBuffer, positionTex.GetRawTextureData<float>(), positionTexBufferSize);
-        //positionTex.Apply(false, false);        
+        var positionTexBufferSize = positionTex.width * positionTex.height * 4;
+        NativeArray<float>.Copy(currentVideo_.positionsBuffer, positionTex.GetRawTextureData<float>(), positionTexBufferSize);
+        positionTex.Apply(false, false);
 
-        //const int numRGBChannels = 3;
-        //var colorTexBufferSize = colorTex.width * colorTex.height * numRGBChannels * sizeof(byte);
-        //NativeArray<byte>.Copy(currentVideo_.rgbBuffer, colorTex.GetRawTextureData<byte>(), colorTexBufferSize);
-        //colorTex.Apply(false, false);
+        const int numRGBChannels = 3;
+        var colorTexBufferSize = colorTex.width * colorTex.height * numRGBChannels * sizeof(byte);
+        NativeArray<byte>.Copy(currentVideo_.rgbBuffer, colorTex.GetRawTextureData<byte>(), colorTexBufferSize);
+        colorTex.Apply(false, false);
 
+        ///SAVING RAW DECOMPRESSED DATA TO DISK
         //SaveFloatArrayToDisk(currentVideo_.positionsBuffer, frameNumber);
         //SaveColorArrayToDisk(currentVideo_.rgbBuffer, frameNumber);
 
@@ -242,6 +264,10 @@ public partial class Record3DPlayback
         tempArray.Dispose();*/
     }
 
+    /// <summary>
+    /// Load depth data
+    /// </summary>
+    /// <param name="frameNumber"></param>
     public void LoadFrameDataLocal(int frameNumber) {
         string depthFileName = $"dev/d{frameNumber}.bytes";
         string depthFilePath = Path.Combine(Application.streamingAssetsPath, depthFileName);
@@ -257,7 +283,7 @@ public partial class Record3DPlayback
             NativeArray<float>.Copy(floatArray, positionTex.GetRawTextureData<float>(), positionTexBufferSize);
             positionTex.Apply(false, false);
             
-            Debug.Log($"Size of float array {floatArray.Length}");
+            Debug.Log($"Size of float depth array {floatArray.Length}");
         }
     }
 
@@ -275,7 +301,7 @@ public partial class Record3DPlayback
             NativeArray<byte>.Copy(byteArray, colorTex.GetRawTextureData<byte>(), colorTexBufferSize);
             colorTex.Apply(false, false);
 
-            Debug.Log($"Size of float array {byteArray.Length}");
+            Debug.Log($"Size of color array {byteArray.Length}");
         }
     }
 
