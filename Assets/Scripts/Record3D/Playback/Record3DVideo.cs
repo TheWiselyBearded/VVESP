@@ -11,6 +11,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Timers;
 using UnityEngine.Networking;
+using System.Drawing;
 
 public class Record3DVideo
 {
@@ -46,17 +47,29 @@ public class Record3DVideo
         public int fps;
     }
 
-#if UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
-    private const string LIBRARY_NAME = "librecord3d_unity_playback.dylib";
+    //private const string LIBRARY_NAME = "record3d_unity_playback"; //"record3d_unity_playback.dll";
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
+    private const string LIBRARY_NAME = "record3d_unity_playback";
 
-#elif UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN || UNITY_ANDROID
-        private const string LIBRARY_NAME = "record3d_unity_playback.dll";
+#elif UNITY_ANDROID
+    private const string LIBRARY_NAME = "librecord3d_unity_playback.so"; //"record3d_unity_playback.dll";
 
 #else
 #error "Unsupported platform!"
 #endif
 
-    [DllImport(LIBRARY_NAME)]
+
+    /*#if UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+        private const string LIBRARY_NAME = "librecord3d_unity_playback.dylib";
+
+    #elif UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN || UNITY_ANDROID
+        private const string LIBRARY_NAME = "librecord3d_unity_playback"; //"record3d_unity_playback.dll";
+
+    #else
+    #error "Unsupported platform!"
+    #endif*/
+
+    [DllImport(LIBRARY_NAME, CallingConvention = CallingConvention.Cdecl)]
     private static extern void DecompressFrame(byte[] jpgBytes, UInt32 jpgBytesSize, byte[] lzfseDepthBytes, UInt32 lzfseBytesSize, byte[] rgbBuffer, float[] poseBuffer, Int32 width, Int32 height, float fx, float fy, float tx, float ty);
 
     public Record3DVideo(ZipArchive z) {
@@ -83,7 +96,7 @@ public class Record3DVideo
         underlyingZip_ = z;
 
         // Load metadata (FPS, the intrinsic matrix, dimensions)
-        using (var metadataStream = new StreamReader(underlyingZip_.GetEntry("dev/metadata").Open())) {
+        using (var metadataStream = new StreamReader(underlyingZip_.GetEntry("test/metadata").Open())) {
             string jsonContents = metadataStream.ReadToEnd();
             Record3DMetadata parsedMetadata = (Record3DVideo.Record3DMetadata)JsonUtility.FromJson(jsonContents, typeof(Record3DMetadata));
 
@@ -152,7 +165,7 @@ public class Record3DVideo
         // Decompress the LZFSE depth data into a byte buffer
         //byte[] lzfseDepthBuffer;
         
-        using (var lzfseDepthStream = underlyingZip_.GetEntry(String.Format("rgbd/{0}.depth", frameIdx)).Open())
+        using (var lzfseDepthStream = underlyingZip_.GetEntry(String.Format("test/rgbd/{0}.depth", frameIdx)).Open())
         {
             //lzfseDepthStream.CopyTo(depthStream);
             //lzfseDepthBuffer = depthStream.GetBuffer();            
@@ -169,7 +182,7 @@ public class Record3DVideo
 
         // Decompress the JPG image into a byte buffer
         //byte[] jpgBuffer;
-        using (var jpgStream = underlyingZip_.GetEntry(String.Format("rgbd/{0}.jpg", frameIdx)).Open())
+        using (var jpgStream = underlyingZip_.GetEntry(String.Format("test/rgbd/{0}.jpg", frameIdx)).Open())
         {
             //jpgStream.CopyTo(colorStream);
             //jpgBuffer = colorStream.GetBuffer();
@@ -180,6 +193,14 @@ public class Record3DVideo
             }
         }
         // Decompress the LZFSE depth map archive, create point cloud and load the JPEG image        
+        /*DecompressFrameData(jpgBuffer,
+            (uint)jpgBuffer.Length,
+            lzfseDepthBuffer,
+            (uint)lzfseDepthBuffer.Length,
+            out rgbBuffer,
+            out positionsBuffer,
+            this.width_, this.height_,
+            this.fx_, this.fy_, this.tx_, this.ty_);*/
         DecompressFrame(jpgBuffer,
             (uint)jpgBuffer.Length,
             lzfseDepthBuffer,
@@ -188,6 +209,7 @@ public class Record3DVideo
             this.positionsBuffer,
             this.width_, this.height_,
             this.fx_, this.fy_, this.tx_, this.ty_);
+        Debug.Log($"Out positions size {positionsBuffer.Length-lzfseDepthBuffer.Length}");
     }
 
     public void LoadFrameDataUncompressed(int frameIdx) {
@@ -235,7 +257,7 @@ public class Record3DVideo
         return floatArray;
     }
 
-    static float InterpolateDepth(float[] depthData, float x, float y, int imgWidth, int imgHeight) {
+    public float InterpolateDepth(float[] depthData, float x, float y, int imgWidth, int imgHeight) {
         int wX = (int)x;
         int wY = (int)y;
         float fracX = x - (float)wX;
@@ -253,7 +275,79 @@ public class Record3DVideo
         return interpVal;
     }
 
-    static void DecompressFrame(byte[] jpgBytes, byte[] lzfseDepthBytes, byte[] rgbBuffer, float[] poseBuffer, int width, int height, float fx, float fy, float tx, float ty) {
-        
+    //byte[] jpgBytes, UInt32 jpgBytesSize, byte[] lzfseDepthBytes, UInt32 lzfseBytesSize, byte[] rgbBuffer, float[] poseBuffer, Int32 width, Int32 height, float fx, float fy, float tx, float ty
+    public void DecompressFrameData(byte[] jpgBytes,
+                                        UInt32 jpgBytesSize,
+                                       byte[] lzfseDepthBytes,
+                                       UInt32 lzfseBytesSize,
+                                       out byte[] rgbBuffer,
+                                       out float[] poseBuffer,
+                                       int width, int height,
+                                       float fx, float fy, float tx, float ty) {
+        // 1. Decompress JPG bytes (You need to implement the JPG decoding yourself or use a library)
+        // This part is dependent on your specific needs and the source of the JPG bytes.
+        // Assuming the JPG bytes are already in the correct format and size for this example.
+        int loadedRGBWidth = width;    // Set these to the correct values for your image
+        int loadedRGBHeight = height;  // Set these to the correct values for your image
+        int loadedChannels = 3;        // Assuming RGB
+
+        rgbBuffer = jpgBytes;  // This is a simplification
+        Buffer.BlockCopy(jpgBytes, 0, rgbBuffer, 0, (int) jpgBytesSize);
+
+        // 2. Decompress the depth map using LZFSE
+        int decompressedDepthMapSize = width * height * sizeof(float);
+        byte[] depthMapBytes = LZFSESharp.LZFSE.Decompress(lzfseDepthBytes, decompressedDepthMapSize); // new byte[decompressedDepthMapSize];
+        int outSize = depthMapBytes.Length;
+        //byte[] depthMapBytes = new byte[decompressedDepthMapSize];
+        //int outSize = LzfseCompressor.Decompress(lzfseDepthBytes, depthMapBytes);
+        //Debug.Log($"Out size {outSize}");
+
+        // Convert byte array to float array
+        float[] depthMap = new float[decompressedDepthMapSize];
+        Buffer.BlockCopy(depthMapBytes, 0, depthMap, 0, outSize);
+
+
+        int depthmapDecompressedSizeIfSameResolutionAsRGB = loadedRGBWidth * loadedRGBHeight * sizeof(float);
+        bool isDepthTheSameSizeAsRGB = depthmapDecompressedSizeIfSameResolutionAsRGB == outSize;
+
+        int depthWidth = loadedRGBWidth;
+        int depthHeight = loadedRGBHeight;
+
+        // If the RGB image's resolution is different than the depth map resolution, then we are most probably working with
+        // a higher-quality LiDAR video (RGB: 720x960 px, Depth: 192x256 px)
+        if (!isDepthTheSameSizeAsRGB) {
+            depthWidth = 192;
+            depthHeight = 256;
+        }
+
+        // 3. Populate the pose buffer
+        poseBuffer = new float[width * height * 4];
+
+        float ifx = 1.0f / fx;
+        float ify = 1.0f / fy;
+        float itx = -tx / fx;
+        float ity = -ty / fy;
+
+        float invRGBWidth = 1.0f / loadedRGBWidth;
+        float invRGBHeight = 1.0f / loadedRGBHeight;
+
+        const int numComponentsPerPointPosition = 4;
+
+        bool needToInterpolate = loadedRGBWidth != width || loadedRGBHeight != height;
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < width; j++) {
+                int idx = loadedRGBWidth * i + j;
+                int posBuffIdx = numComponentsPerPointPosition * idx;
+                float depthX = invRGBWidth * width * j;
+                float depthY = invRGBHeight * height * i;
+                float currDepth = needToInterpolate ? InterpolateDepth(depthMap, depthX, depthY, width, height) : depthMap[idx];
+
+                poseBuffer[posBuffIdx + 0] = (ifx * j + itx) * currDepth;
+                poseBuffer[posBuffIdx + 1] = -(ify * i + ity) * currDepth;
+                poseBuffer[posBuffIdx + 2] = -currDepth;
+                poseBuffer[posBuffIdx + 3] = idx;
+            }
+        }
     }
 }
+

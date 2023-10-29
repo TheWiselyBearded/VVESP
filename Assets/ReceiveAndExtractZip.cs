@@ -34,11 +34,11 @@ public class ReceiveAndExtractZip : MonoBehaviour {
             zipArchive = new ZipArchive(memoryStream);
 
             // You can access files and folders within the ZIP archive here
-            foreach (ZipArchiveEntry entry in zipArchive.Entries) {
+            /*foreach (ZipArchiveEntry entry in zipArchive.Entries) {
                 Debug.Log("File in ZIP: " + entry.FullName);
                 // You can extract the contents of individual entries if needed
                 // using entry.Open()
-            }
+            }*/
             playback.LoadVid(zipArchive);
             videoController.startRendering = true;
             stream.Close();

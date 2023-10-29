@@ -10,7 +10,9 @@ public class VideoController : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        Application.targetFrameRate = 30;
+        Application.targetFrameRate = 24;
+        Debug.Log($"Application.targetFrameRate {Application.targetFrameRate}");
+        //Application.targetFrameRate = 30;
         startRendering = false;
         if (videoPlayer == null) videoPlayer = FindObjectOfType<Record3DPlayback>(); // gameObject.GetComponent<Record3DPlayback>();
         //videoPlayer.LoadFrame(10);

@@ -231,8 +231,8 @@ public partial class Record3DPlayback
 
         //if (streamEffect)
         //Debug.Log($"Load frame {frameNumber}");
-        //currentVideo_.LoadFrameData(frameNumber);
-        currentVideo_.LoadFrameDataUncompressed(frameNumber); // dev
+        currentVideo_.LoadFrameData(frameNumber);
+        //currentVideo_.LoadFrameDataUncompressed(frameNumber); // dev
         currentFrame_ = frameNumber;
 
         // if local pc
@@ -245,6 +245,7 @@ public partial class Record3DPlayback
 
         const int numRGBChannels = 3;
         var colorTexBufferSize = colorTex.width * colorTex.height * numRGBChannels * sizeof(byte);
+        //colorTex.LoadImage(currentVideo_.rgbBuffer);        
         NativeArray<byte>.Copy(currentVideo_.rgbBuffer, colorTex.GetRawTextureData<byte>(), colorTexBufferSize);
         colorTex.Apply(false, false);
 
