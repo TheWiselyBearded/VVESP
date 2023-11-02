@@ -155,6 +155,8 @@ public class Record3DVideo
     byte[] jpgBuffer;
     //MemoryStream depthStream = new MemoryStream();
     //MemoryStream colorStream = new MemoryStream();
+
+    private long st, et;
     public void LoadFrameData(int frameIdx)
     {
         if (frameIdx >= numFrames_)
@@ -201,6 +203,7 @@ public class Record3DVideo
             out positionsBuffer,
             this.width_, this.height_,
             this.fx_, this.fy_, this.tx_, this.ty_);*/
+        st = SystemDataFlowMeasurements.GetUnixTS();
         DecompressFrame(jpgBuffer,
             (uint)jpgBuffer.Length,
             lzfseDepthBuffer,
@@ -209,7 +212,9 @@ public class Record3DVideo
             this.positionsBuffer,
             this.width_, this.height_,
             this.fx_, this.fy_, this.tx_, this.ty_);
-        Debug.Log($"Out positions size {positionsBuffer.Length-lzfseDepthBuffer.Length}");
+        et = SystemDataFlowMeasurements.GetUnixTS();
+        //Debug.Log($"decompression time {et - st}");
+        //Debug.Log($"Out positions size {positionsBuffer.Length-lzfseDepthBuffer.Length}");
     }
 
     public void LoadFrameDataUncompressed(int frameIdx) {

@@ -32,7 +32,8 @@ public class VideoController : MonoBehaviour
     public void NextFrame() {
         //Debug.Log("Begin next frame");
         //if (frameCounter > videoPlayer.numberOfFrames) frameCounter = 0;
-        if (frameCounter > 89) frameCounter = 0;
+        //if (frameCounter > 89) frameCounter = 0;
+        if (frameCounter > videoPlayer.numberOfFrames) return;
         videoPlayer.LoadFrame(frameCounter);
         frameCounter++;
         //Debug.Log("complete next frame");

@@ -11,6 +11,10 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Timers;
 using UnityEngine.Networking;
+using Unity.Collections.LowLevel.Unsafe;
+using Unity.Mathematics;
+using Unity.Jobs;
+using UnityEngine.UIElements;
 
 
 //[ExecuteInEditMode]
@@ -224,8 +228,29 @@ public partial class Record3DPlayback
 
     }
 
+
+    unsafe void SetNativeVertexArrays() {        
+        // pin the mesh's vertex buffer in place...
+        fixed (void* vertexBufferPointer = currentVideo_.positionsBuffer) {
+            // ...and use memcpy to copy the Vector3[] into a NativeArray<floar3> without casting. whould be fast!
+            UnsafeUtility.MemCpy(NativeArrayUnsafeUtility.GetUnsafeBufferPointerWithoutChecks(positionTex.GetRawTextureData<float>()),
+                vertexBufferPointer, currentVideo_.positionsBuffer.Length * (long)UnsafeUtility.SizeOf<float>());
+        }
+    }
+
+    public unsafe void SetPositionBuffer() {
+        unsafe {
+            fixed (float* ptr = currentVideo_.positionsBuffer) {
+                IntPtr intPtr = (IntPtr)ptr;
+                positionTex.LoadRawTextureData(intPtr, positionTex.width * positionTex.height * 24);
+            }
+        }
+    }
+
+
+    private long st, et;
     public void LoadFrame(int frameNumber)
-    {
+    {        
         //ReloadVideoIfNeeded(); // EDIT    // Load the data from the archive
         //if (currentVideo_ == null) LoadVid();
 
@@ -235,34 +260,36 @@ public partial class Record3DPlayback
         //currentVideo_.LoadFrameDataUncompressed(frameNumber); // dev
         currentFrame_ = frameNumber;
 
-        // if local pc
-        //LoadFrameDataLocal(frameNumber);
+        //LoadFrameDataLocal(frameNumber);  // if local pc
         //LoadColorDataLocal(frameNumber);
 
-        var positionTexBufferSize = positionTex.width * positionTex.height * 4;
-        NativeArray<float>.Copy(currentVideo_.positionsBuffer, positionTex.GetRawTextureData<float>(), positionTexBufferSize);
+
+        //SetNativeVertexArrays();
+
+        //var positionTexBufferSize = positionTex.width * positionTex.height * 4;
+        //NativeArray<float>.Copy(currentVideo_.positionsBuffer, positionTex.GetRawTextureData<float>(), positionTexBufferSize);
+        
+        st = SystemDataFlowMeasurements.GetUnixTS();
+        positionTex.SetPixelData<float>(currentVideo_.positionsBuffer, 0, 0);
+        //SetPositionBuffer();
         positionTex.Apply(false, false);
 
+        et = SystemDataFlowMeasurements.GetUnixTS();
+        Debug.Log($"Time diff depth {et-st}, size {currentVideo_.positionsBuffer.Length}");
+
+        st = SystemDataFlowMeasurements.GetUnixTS();
         const int numRGBChannels = 3;
         var colorTexBufferSize = colorTex.width * colorTex.height * numRGBChannels * sizeof(byte);
         //colorTex.LoadImage(currentVideo_.rgbBuffer);        
         NativeArray<byte>.Copy(currentVideo_.rgbBuffer, colorTex.GetRawTextureData<byte>(), colorTexBufferSize);
         colorTex.Apply(false, false);
+        et = SystemDataFlowMeasurements.GetUnixTS();
+        //Debug.Log($"Time diff color {et - st}, size {currentVideo_.rgbBuffer.Length}");
 
         ///SAVING RAW DECOMPRESSED DATA TO DISK
         //SaveFloatArrayToDisk(currentVideo_.positionsBuffer, frameNumber);
         //SaveColorArrayToDisk(currentVideo_.rgbBuffer, frameNumber);
 
-        /*// Assuming dirtyRect is a Rect that contains the area of the texture that needs updating
-        Rect dirtyRect = new Rect(100, 100, 300, 300);        
-        int dirtyRegionSize = (int)(dirtyRect.width * dirtyRect.height * 4); // 4 is for float
-        // Create a temporary NativeArray to hold the data for the dirty region
-        NativeArray<float> tempArray = new NativeArray<float>(dirtyRegionSize, Allocator.Temp);
-        // Copy only the relevant data into tempArray        
-        NativeArray<float>.Copy(currentVideo_.positionsBuffer, tempArray, dirtyRegionSize);
-        positionTex.Apply(false, false);
-        // Dispose of the temporary NativeArray
-        tempArray.Dispose();*/
     }
 
     /// <summary>
