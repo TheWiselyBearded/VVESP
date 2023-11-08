@@ -159,6 +159,7 @@ public class Record3DVideo
     private long st, et;
     public void LoadFrameData(int frameIdx)
     {
+        st = SystemDataFlowMeasurements.GetUnixTS();
         if (frameIdx >= numFrames_)
         {
             return;
@@ -203,7 +204,8 @@ public class Record3DVideo
             out positionsBuffer,
             this.width_, this.height_,
             this.fx_, this.fy_, this.tx_, this.ty_);*/
-        st = SystemDataFlowMeasurements.GetUnixTS();
+        //st = SystemDataFlowMeasurements.GetUnixTS();
+        long stdcf= SystemDataFlowMeasurements.GetUnixTS();
         DecompressFrame(jpgBuffer,
             (uint)jpgBuffer.Length,
             lzfseDepthBuffer,
@@ -213,7 +215,8 @@ public class Record3DVideo
             this.width_, this.height_,
             this.fx_, this.fy_, this.tx_, this.ty_);
         et = SystemDataFlowMeasurements.GetUnixTS();
-        //Debug.Log($"decompression time {et - st}");
+        Debug.Log($"decompression time {et - stdcf}");
+        Debug.Log($"load frame data time {et - st}");
         //Debug.Log($"Out positions size {positionsBuffer.Length-lzfseDepthBuffer.Length}");
     }
 

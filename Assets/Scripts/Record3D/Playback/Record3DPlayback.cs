@@ -268,7 +268,6 @@ public partial class Record3DPlayback
 
         //var positionTexBufferSize = positionTex.width * positionTex.height * 4;
         //NativeArray<float>.Copy(currentVideo_.positionsBuffer, positionTex.GetRawTextureData<float>(), positionTexBufferSize);
-        
         st = SystemDataFlowMeasurements.GetUnixTS();
         positionTex.SetPixelData<float>(currentVideo_.positionsBuffer, 0, 0);
         //SetPositionBuffer();
