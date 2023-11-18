@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 7011e03b0e273094991e9622990d14f1
+guid: 7302ce49b3a046f47af4aeab82ba87c5
 PluginImporter:
   externalObjects: {}
   serializedVersion: 2
@@ -27,9 +27,7 @@ PluginImporter:
       Android: Android
     second:
       enabled: 1
-      settings:
-        AndroidSharedLibraryType: Executable
-        CPU: ARM64
+      settings: {}
   - first:
       Any: 
     second:
@@ -40,33 +38,7 @@ PluginImporter:
     second:
       enabled: 0
       settings:
-        CPU: AnyCPU
         DefaultValueInitialized: true
-        OS: AnyOS
-  - first:
-      Standalone: Linux64
-    second:
-      enabled: 0
-      settings:
-        CPU: AnyCPU
-  - first:
-      Standalone: OSXUniversal
-    second:
-      enabled: 0
-      settings:
-        CPU: AnyCPU
-  - first:
-      Standalone: Win
-    second:
-      enabled: 0
-      settings:
-        CPU: AnyCPU
-  - first:
-      Standalone: Win64
-    second:
-      enabled: 0
-      settings:
-        CPU: AnyCPU
   userData: 
   assetBundleName: 
   assetBundleVariant: 

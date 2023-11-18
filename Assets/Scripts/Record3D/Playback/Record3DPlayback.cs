@@ -26,6 +26,9 @@ public partial class Record3DPlayback : MonoBehaviour
     private Texture2D positionTex;
     private Texture2D colorTex;
 
+    public RenderTexture cR;
+    public RenderTexture dR;
+
     // Playback
     private int currentFrame_ = 0;
     private bool isPlaying_ = false;
@@ -263,6 +266,8 @@ public partial class Record3DPlayback
         //LoadFrameDataLocal(frameNumber);  // if local pc
         //LoadColorDataLocal(frameNumber);
 
+        cR.enableRandomWrite = true;
+        dR.enableRandomWrite = true;
 
         //SetNativeVertexArrays();
 
@@ -272,23 +277,121 @@ public partial class Record3DPlayback
         positionTex.SetPixelData<float>(currentVideo_.positionsBuffer, 0, 0);
         //SetPositionBuffer();
         positionTex.Apply(false, false);
+        //Graphics.Blit(positionTex, dR);
 
         et = SystemDataFlowMeasurements.GetUnixTS();
-        Debug.Log($"Time diff depth {et-st}, size {currentVideo_.positionsBuffer.Length}");
+        //Debug.Log($"Time diff depth {et-st}, size {currentVideo_.positionsBuffer.Length}");
 
         st = SystemDataFlowMeasurements.GetUnixTS();
         const int numRGBChannels = 3;
         var colorTexBufferSize = colorTex.width * colorTex.height * numRGBChannels * sizeof(byte);
-        //colorTex.LoadImage(currentVideo_.rgbBuffer);        
-        NativeArray<byte>.Copy(currentVideo_.rgbBuffer, colorTex.GetRawTextureData<byte>(), colorTexBufferSize);
+
+        // Assuming jpgData is your JPEG image data as a byte array
+        st = SystemDataFlowMeasurements.GetUnixTS();
+        //colorTex.LoadImage(currentVideo_.jpgBuffer);
+
+        colorTex.SetPixelData<byte>(currentVideo_.rgbBuffer, 0, 0);
         colorTex.Apply(false, false);
+        //ImageConversion.LoadImage(colorTex, currentVideo_.jpgBuffer);
+        //NativeArray<byte>.Copy(currentVideo_.rgbBuffer, colorTex.GetRawTextureData<byte>(), colorTexBufferSize);
         et = SystemDataFlowMeasurements.GetUnixTS();
+        //Debug.Log($"Time diff color load image {et-st}");
+        //RotateImage(colorTex, 180f);
+
+        //colorTex.Apply(false, false);
+        //Graphics.Blit(colorTex, cR);
+
+
+        //st = SystemDataFlowMeasurements.GetUnixTS();
+        //ReverseTextureRows(colorTex);
+        //et = SystemDataFlowMeasurements.GetUnixTS();
+        //Debug.Log($"reverse textures {et - st}");
+
         //Debug.Log($"Time diff color {et - st}, size {currentVideo_.rgbBuffer.Length}");
 
         ///SAVING RAW DECOMPRESSED DATA TO DISK
         //SaveFloatArrayToDisk(currentVideo_.positionsBuffer, frameNumber);
         //SaveColorArrayToDisk(currentVideo_.rgbBuffer, frameNumber);
 
+    }
+
+    public static void RotateImage(Texture2D tex, float angleDegrees) {
+        int width = tex.width;
+        int height = tex.height;
+        float halfHeight = height * 0.5f;
+        float halfWidth = width * 0.5f;
+
+        // Get the raw texture data as bytes (3 bytes per pixel)
+        var texels = tex.GetRawTextureData<byte>();
+        var copy = System.Buffers.ArrayPool<byte>.Shared.Rent(texels.Length);
+        Unity.Collections.NativeArray<byte>.Copy(texels, copy, texels.Length);
+
+        float phi = Mathf.Deg2Rad * angleDegrees;
+        float cosPhi = Mathf.Cos(phi);
+        float sinPhi = Mathf.Sin(phi);
+
+        int bytesPerPixel = 3; // 3 bytes per pixel
+
+        int address = 0;
+        for (int newY = 0; newY < height; newY++) {
+            for (int newX = 0; newX < width; newX++) {
+                float cX = newX - halfWidth;
+                float cY = newY - halfHeight;
+                int oldX = Mathf.RoundToInt(cosPhi * cX + sinPhi * cY + halfWidth);
+                int oldY = Mathf.RoundToInt(-sinPhi * cX + cosPhi * cY + halfHeight);
+
+                // Check if the oldX and oldY are within bounds of the copy array
+                if (oldX >= 0 && oldX < width && oldY >= 0 && oldY < height) {
+                    // Calculate the byte offsets for both the source and destination
+                    int srcOffset = (oldY * width + oldX) * bytesPerPixel;
+                    int destOffset = address * bytesPerPixel;
+
+                    // Copy 3 bytes (RGB) at a time
+                    for (int i = 0; i < bytesPerPixel; i++) {
+                        texels[destOffset + i] = copy[srcOffset + i];
+                    }
+                } else {
+                    // Set the destination bytes to 0 for pixels outside the source bounds
+                    for (int i = 0; i < bytesPerPixel; i++) {
+                        texels[address * bytesPerPixel + i] = 0;
+                    }
+                }
+
+                address++;
+            }
+        }
+
+        // No need to reinitialize or SetPixels - data is already in-place.
+        tex.Apply(true);
+
+        System.Buffers.ArrayPool<byte>.Shared.Return(copy);
+    }
+
+
+
+    // Assuming you have a Texture2D loaded and assigned to 'texture'
+    void ReverseTextureRows(Texture2D texture) {
+        int width = texture.width;
+        int height = texture.height;
+        Color[] pixels = texture.GetPixels();
+
+        // Create a temporary array to hold the reversed pixels
+        Color[] reversedPixels = new Color[pixels.Length];
+
+        for (int i = 0; i < height; i++) {
+            int srcRow = height - 1 - i;
+            int destRow = i;
+
+            for (int x = 0; x < width; x++) {
+                int srcIndex = srcRow * width + x;
+                int destIndex = destRow * width + x;
+                reversedPixels[destIndex] = pixels[srcIndex];
+            }
+        }
+
+        // Set the reversed pixels back to the texture
+        texture.SetPixels(reversedPixels);
+        texture.Apply();
     }
 
     /// <summary>
