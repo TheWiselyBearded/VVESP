@@ -1,0 +1,13 @@
+Assets/Dev.unity filter=lfs diff=lfs merge=lfs -text
+Assets/LiveStreaming.unity filter=lfs diff=lfs merge=lfs -text
+Assets/Debug.unity filter=lfs diff=lfs merge=lfs -text
+Assets/Main-PC.unity filter=lfs diff=lfs merge=lfs -text
+Assets/Main-Quest.unity filter=lfs diff=lfs merge=lfs -text
+Assets/RGBD-PC.vfx filter=lfs diff=lfs merge=lfs -text
+Assets/RGBD-Quest.vfx filter=lfs diff=lfs merge=lfs -text
+Assets/Scenes/DebugVFX.unity filter=lfs diff=lfs merge=lfs -text
+Assets/Scenes/Dev.unity filter=lfs diff=lfs merge=lfs -text
+Assets/Scenes/[Retired]/Main-Quest.unity filter=lfs diff=lfs merge=lfs -text
+Assets/Scenes/Dev/Dev.unity filter=lfs diff=lfs merge=lfs -text
+Assets/Scenes/Dev/Dev.unity filter=lfs diff=lfs merge=lfs -text
+Assets/Scenes/[Retired]/Main-Quest.unity filter=lfs diff=lfs merge=lfs -text
