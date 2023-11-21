@@ -31,7 +31,7 @@ public partial class Record3DPlayback : MonoBehaviour
 
     // Playback
     private int currentFrame_ = 0;
-    private bool isPlaying_ = false;
+    public bool isPlaying_ = false;
     private Record3DVideo currentVideo_ = null;
     private Timer videoFrameUpdateTimer_ = null;
     private bool shouldRefresh_ = false;
@@ -75,6 +75,7 @@ public partial class Record3DPlayback : MonoBehaviour
             LoadFrame(currentFrame_);
             currentFrame_ = (currentFrame_ + 1) % currentVideo_.numFrames;
         }*/
+
     }
 
     public void OnTimerTick(object sender, ElapsedEventArgs e)
@@ -253,7 +254,8 @@ public partial class Record3DPlayback
 
     private long st, et;
     public void LoadFrame(int frameNumber)
-    {        
+    {
+        if (isPlaying_ == false) return;
         //ReloadVideoIfNeeded(); // EDIT    // Load the data from the archive
         //if (currentVideo_ == null) LoadVid();
 

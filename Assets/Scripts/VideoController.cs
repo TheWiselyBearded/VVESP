@@ -7,9 +7,11 @@ public class VideoController : MonoBehaviour
     public bool startRendering;
     public Record3DPlayback videoPlayer;
     public int frameCounter;
+    private int playbackDirection;
     // Start is called before the first frame update
     void Start()
     {
+        playbackDirection = 0;
         Application.targetFrameRate = 24;
         Debug.Log($"Application.targetFrameRate {Application.targetFrameRate}");
         //Application.targetFrameRate = 30;
@@ -20,23 +22,51 @@ public class VideoController : MonoBehaviour
         //InvokeRepeating("NextFrame", 1.0f, 0.1f);
     }
 
+    protected void PausePlay() {
+        videoPlayer.isPlaying_ = !videoPlayer.isPlaying_;
+    }
+
+    public void SetReadyState() {
+        startRendering = true;
+        videoPlayer.isPlaying_ = true;
+    }
 
     float t;
     private void Update() {
 
         //if (videoPlayer.zipArchive != null) startRendering = true;
-        if (startRendering)  NextFrame();
+        if (Input.GetKeyDown(KeyCode.P)) PausePlay();
+        if (Input.GetKeyDown(KeyCode.LeftArrow)) SetRewind();
+        if (Input.GetKeyDown(KeyCode.RightArrow)) SetForward();
+
+
+        if (startRendering && videoPlayer.isPlaying_)  SequenceFrame();
+        
         //NextFrame();
     }
 
-    public void NextFrame() {
+    public void SetRewind() {
+        playbackDirection = -1;
+    }
+
+    public void SetForward() {
+        playbackDirection = 0;
+    }
+
+    public void SequenceFrame() {
         //Debug.Log("Begin next frame");
         //if (frameCounter > videoPlayer.numberOfFrames) frameCounter = 0;
         //if (frameCounter > 89) frameCounter = 0;
-        if (frameCounter > videoPlayer.numberOfFrames/2) frameCounter = 0;      
+        //if (frameCounter > videoPlayer.numberOfFrames/2) frameCounter = 0;      
+        
         videoPlayer.LoadFrame(frameCounter);
-        frameCounter++;
-        //Debug.Log("complete next frame");
+        if (playbackDirection == 0) {
+            frameCounter++;
+            frameCounter %= (videoPlayer.numberOfFrames / 2);
+        } else if (playbackDirection == -1) {
+            frameCounter--;
+            frameCounter = (frameCounter - (videoPlayer.numberOfFrames / 2) * -1) % (videoPlayer.numberOfFrames / 2);
+        }
     }
 
 }

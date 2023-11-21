@@ -40,7 +40,7 @@ public class ReceiveAndExtractZip : MonoBehaviour {
                 // using entry.Open()
             }*/
             playback.LoadVid(zipArchive);
-            videoController.startRendering = true;
+            videoController.SetReadyState();
             stream.Close();
             client.Close();
         } catch (Exception e) {
