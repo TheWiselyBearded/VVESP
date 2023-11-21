@@ -37,6 +37,7 @@ public class Record3DVideo
     private ZipArchive underlyingZip_;
 
     public byte[] rgbBuffer;
+    public byte[] rgbBufferBG;
 
     public float[] positionsBuffer;
 
@@ -136,7 +137,7 @@ public class Record3DVideo
         underlyingZip_ = z;
 
         // Load metadata (FPS, the intrinsic matrix, dimensions)
-        using (var metadataStream = new StreamReader(underlyingZip_.GetEntry("test/metadata").Open())) {
+        using (var metadataStream = new StreamReader(underlyingZip_.GetEntry("capture/metadata").Open())) {
             string jsonContents = metadataStream.ReadToEnd();
             Record3DMetadata parsedMetadata = (Record3DVideo.Record3DMetadata)JsonUtility.FromJson(jsonContents, typeof(Record3DMetadata));
 
@@ -157,6 +158,7 @@ public class Record3DVideo
         //Debug.Log(String.Format("# Available Frames: {0}", this.numFrames_));
 
         rgbBuffer = new byte[width * height * 3];
+        rgbBufferBG = new byte[width * height * 3];
         positionsBuffer = new float[width * height * 4];
         //string p = "jar:file://" + Application.dataPath + "!/assets/momcouch.r3d";
         turboJPEGHandle = TjInitDecompress();
@@ -188,28 +190,27 @@ public class Record3DVideo
         //Debug.Log(String.Format("# Available Frames: {0}", this.numFrames_));
 
         rgbBuffer = new byte[width * height * 3];
+        rgbBufferBG = new byte[width * height * 3];
         positionsBuffer = new float[width * height * 4];
         turboJPEGHandle = TjInitDecompress();
     }
 
     byte[] lzfseDepthBuffer;
     public byte[] jpgBuffer;
+    public byte[] jpgBufferBG;
     //MemoryStream depthStream = new MemoryStream();
     //MemoryStream colorStream = new MemoryStream();
 
     private long st, et;
-    public void LoadFrameData(int frameIdx)
-    {
+    public void LoadFrameData(int frameIdx) {
         st = SystemDataFlowMeasurements.GetUnixTS();
-        if (frameIdx >= (numFrames_/2))
-        {
+        if (frameIdx >= (numFrames_ / 2)) {
             return;
         }
         // Decompress the LZFSE depth data into a byte buffer
         //byte[] lzfseDepthBuffer;
-        
-        using (var lzfseDepthStream = underlyingZip_.GetEntry(String.Format("test/rgbd/{0}.depth", frameIdx)).Open())
-        {
+
+        using (var lzfseDepthStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/{0}.depth", frameIdx)).Open()) {
             //lzfseDepthStream.CopyTo(depthStream);
             //lzfseDepthBuffer = depthStream.GetBuffer();            
             using (var memoryStream = new MemoryStream()) {
@@ -218,21 +219,32 @@ public class Record3DVideo
                 lzfseDepthBuffer = memoryStream.GetBuffer();
                 //Debug.Log($"Record3DVideo::Size of depth buffer {lzfseDepthBuffer.Length}");
             }
-            
+
             //if (lzfseDepthBuffer == null) lzfseDepthBuffer = new byte[57636];
             //lzfseDepthStream.Read(lzfseDepthBuffer);
         }
 
         // Decompress the JPG image into a byte buffer
         //byte[] jpgBuffer;
-        using (var jpgStream = underlyingZip_.GetEntry(String.Format("test/rgbd/{0}.jpg", frameIdx)).Open())
-        {
+        using (var jpgStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/{0}.jpg", frameIdx)).Open()) {
             //jpgStream.CopyTo(colorStream);
             //jpgBuffer = colorStream.GetBuffer();
             using (var memoryStream = new MemoryStream()) {
                 jpgStream.CopyTo(memoryStream);
                 //jpgBuffer = memoryStream.ToArray();
                 jpgBuffer = memoryStream.GetBuffer();
+            }
+        }
+        //using (var jpgStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/fg/fgColor{0}.jpg", frameIdx)).Open()) {
+        //    using (var memoryStream = new MemoryStream()) {
+        //        jpgStream.CopyTo(memoryStream);
+        //        jpgBuffer = memoryStream.GetBuffer();
+        //    }
+        //}
+        using (var bgJpgStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/bg/bgColor{0}.jpg", frameIdx)).Open()) {
+            using (var memoryStream = new MemoryStream()) {
+                bgJpgStream.CopyTo(memoryStream);
+                jpgBufferBG = memoryStream.GetBuffer();
             }
         }
         //st = SystemDataFlowMeasurements.GetUnixTS();
@@ -251,6 +263,17 @@ public class Record3DVideo
                 st = SystemDataFlowMeasurements.GetUnixTS();
                 result = tjDecompress2(turboJPEGHandle, jpgPtr, (uint)jpgBuffer.Length, (IntPtr)ptr, loadedRGBWidth, 0, loadedRGBHeight, 0, 0);
                 et = SystemDataFlowMeasurements.GetUnixTS();
+            }
+        }
+        if (jpgBufferBG != null) {
+            IntPtr jpgBGPtr = ConvertByteArrayToIntPtr(jpgBufferBG);
+            result = -1;
+            unsafe {
+                fixed (byte* ptr = this.rgbBufferBG) {
+                    st = SystemDataFlowMeasurements.GetUnixTS();
+                    result = tjDecompress2(turboJPEGHandle, jpgBGPtr, (uint)jpgBufferBG.Length, (IntPtr)ptr, loadedRGBWidth, 0, loadedRGBHeight, 0, 0);
+                    et = SystemDataFlowMeasurements.GetUnixTS();
+                }
             }
         }
 

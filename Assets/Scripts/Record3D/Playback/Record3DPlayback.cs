@@ -22,9 +22,10 @@ public partial class Record3DPlayback : MonoBehaviour
 {
     public string r3dPath;
 
-    public VisualEffect streamEffect;
+    public VisualEffect[] streamEffects;
     private Texture2D positionTex;
     private Texture2D colorTex;
+    private Texture2D colorTexBG;
 
     public RenderTexture cR;
     public RenderTexture dR;
@@ -43,8 +44,10 @@ public partial class Record3DPlayback : MonoBehaviour
     {
         DestroyImmediate(positionTex);
         DestroyImmediate(colorTex);
+        DestroyImmediate(colorTexBG);
         positionTex = null;
         colorTex = null;
+        colorTexBG = null;
         Resources.UnloadUnusedAssets();
 
         positionTex = new Texture2D(width, height, TextureFormat.RGBAFloat, false)
@@ -56,15 +59,23 @@ public partial class Record3DPlayback : MonoBehaviour
         {
             filterMode = FilterMode.Point
         };
+        colorTexBG = new Texture2D(width, height, TextureFormat.RGB24, false) {
+            filterMode = FilterMode.Point
+        };
 
         if (numParticles == 0) numParticles = width * height;
-        if (streamEffect == null)
-        {
-            streamEffect = gameObject.GetComponent<VisualEffect>();
-        }
-        streamEffect.SetInt("Number of Particles", numParticles);
-        streamEffect.SetTexture("Particle Position Texture", positionTex);
-        streamEffect.SetTexture("Particle Color Texture", colorTex);
+
+        //if (streamEffect == null)
+        //{
+        //    streamEffect = gameObject.GetComponent<VisualEffect>();
+        //}
+        streamEffects[0].SetInt("Number of Particles", numParticles);
+        streamEffects[0].SetTexture("Particle Position Texture", positionTex);
+        streamEffects[0].SetTexture("Particle Color Texture", colorTex);
+
+        streamEffects[1].SetInt("Number of Particles", numParticles);
+        streamEffects[1].SetTexture("Particle Position Texture", positionTex);
+        streamEffects[1].SetTexture("Particle Color Texture", colorTexBG);
     }
 
     void Update()
@@ -303,6 +314,11 @@ public partial class Record3DPlayback
 
         //colorTex.Apply(false, false);
         //Graphics.Blit(colorTex, cR);
+
+        if (currentVideo_.rgbBufferBG != null) {
+            colorTexBG.SetPixelData<byte>(currentVideo_.rgbBufferBG, 0, 0);
+            colorTexBG.Apply(false, false);
+        }
 
 
         //st = SystemDataFlowMeasurements.GetUnixTS();
