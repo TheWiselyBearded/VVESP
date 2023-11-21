@@ -47,11 +47,16 @@ public class VideoController : MonoBehaviour
 
     public void SetRewind() {
         playbackDirection = -1;
+        Debug.Log("Set rewind");
     }
 
     public void SetForward() {
         playbackDirection = 0;
+        Debug.Log("Set forward");
     }
+
+    public void SetPlay() => videoPlayer.isPlaying_ = true;
+    public void SetPause() => videoPlayer.isPlaying_ = false;
 
     public void SequenceFrame() {
         //Debug.Log("Begin next frame");
@@ -62,11 +67,12 @@ public class VideoController : MonoBehaviour
         videoPlayer.LoadFrame(frameCounter);
         if (playbackDirection == 0) {
             frameCounter++;
-            frameCounter %= (videoPlayer.numberOfFrames / 2);
+            frameCounter %= (videoPlayer.numberOfFrames);
         } else if (playbackDirection == -1) {
             frameCounter--;
-            frameCounter = (frameCounter - (videoPlayer.numberOfFrames / 2) * -1) % (videoPlayer.numberOfFrames / 2);
+            frameCounter = (frameCounter - (videoPlayer.numberOfFrames) * -1) % (videoPlayer.numberOfFrames);
         }
+        Debug.Log($"Frame Counter {frameCounter}");
     }
 
 }

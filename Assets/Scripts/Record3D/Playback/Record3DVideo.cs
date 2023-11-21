@@ -153,8 +153,9 @@ public class Record3DVideo
             this.ty_ = parsedMetadata.K[7];
         }
 
-        this.numFrames_ = underlyingZip_.Entries.Count(x => x.FullName.Contains(".depth"));
-        if (this.numFrames == 0) this.numFrames_ = (underlyingZip_.Entries.Count(x => x.FullName.Contains(".bytes")) / 2);
+        this.numFrames_ = underlyingZip_.Entries.Count(x => x.FullName.Contains(".depth"));     
+        if (this.numFrames == 0) this.numFrames_ = (underlyingZip_.Entries.Count(x => x.FullName.Contains(".bytes")));
+        //if (this.numFrames == 0) this.numFrames_ = (underlyingZip_.Entries.Count(x => x.FullName.Contains(".bytes")) / 2);
         //Debug.Log(String.Format("# Available Frames: {0}", this.numFrames_));
 
         rgbBuffer = new byte[width * height * 3];
@@ -204,7 +205,7 @@ public class Record3DVideo
     private long st, et;
     public void LoadFrameData(int frameIdx) {
         st = SystemDataFlowMeasurements.GetUnixTS();
-        if (frameIdx >= (numFrames_ / 2)) {
+        if (frameIdx >= (numFrames_)) {
             return;
         }
         // Decompress the LZFSE depth data into a byte buffer
@@ -226,21 +227,21 @@ public class Record3DVideo
 
         // Decompress the JPG image into a byte buffer
         //byte[] jpgBuffer;
-        using (var jpgStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/{0}.jpg", frameIdx)).Open()) {
-            //jpgStream.CopyTo(colorStream);
-            //jpgBuffer = colorStream.GetBuffer();
-            using (var memoryStream = new MemoryStream()) {
-                jpgStream.CopyTo(memoryStream);
-                //jpgBuffer = memoryStream.ToArray();
-                jpgBuffer = memoryStream.GetBuffer();
-            }
-        }
-        //using (var jpgStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/fg/fgColor{0}.jpg", frameIdx)).Open()) {
+        //using (var jpgStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/{0}.jpg", frameIdx)).Open()) {
+        //    //jpgStream.CopyTo(colorStream);
+        //    //jpgBuffer = colorStream.GetBuffer();
         //    using (var memoryStream = new MemoryStream()) {
         //        jpgStream.CopyTo(memoryStream);
+        //        //jpgBuffer = memoryStream.ToArray();
         //        jpgBuffer = memoryStream.GetBuffer();
         //    }
         //}
+        using (var jpgStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/fg/fgColor{0}.jpg", frameIdx)).Open()) {
+            using (var memoryStream = new MemoryStream()) {
+                jpgStream.CopyTo(memoryStream);
+                jpgBuffer = memoryStream.GetBuffer();
+            }
+        }
         using (var bgJpgStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/bg/bgColor{0}.jpg", frameIdx)).Open()) {
             using (var memoryStream = new MemoryStream()) {
                 bgJpgStream.CopyTo(memoryStream);
