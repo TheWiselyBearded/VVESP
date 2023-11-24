@@ -52,10 +52,12 @@ public class Record3DVideo
 
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
     private const string JPG_LIBRARY_NAME = "turbojpeg";
-
+#elif UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+    private const string JPG_LIBRARY_NAME = "libturbojpeg";
 #elif UNITY_ANDROID
     private const string JPG_LIBRARY_NAME = "jpeg-turbo";
 #endif
+
 
     [DllImport(JPG_LIBRARY_NAME, CallingConvention = CallingConvention.Cdecl, EntryPoint = "tjDecompress2")]
     private static extern int tjDecompress2(IntPtr handle, IntPtr jpegBuf, uint jpegSize, IntPtr dstBuf, int width, int pitch, int height, int pixelFormat, int flags);
@@ -66,10 +68,10 @@ public class Record3DVideo
     //private const string LIBRARY_NAME = "record3d_unity_playback"; //"record3d_unity_playback.dll";
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
     private const string LIBRARY_NAME = "record3d_unity_playback";
-
+#elif UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+    private const string LIBRARY_NAME = "librecord3d_unity_playback.dylib";
 #elif UNITY_ANDROID
     private const string LIBRARY_NAME = "librecord3d_unity_playback.so"; //"record3d_unity_playback.dll";
-
 #else
 #error "Unsupported platform!"
 #endif
@@ -162,6 +164,7 @@ public class Record3DVideo
         rgbBufferBG = new byte[width * height * 3];
         positionsBuffer = new float[width * height * 4];
         //string p = "jar:file://" + Application.dataPath + "!/assets/momcouch.r3d";
+        Debug.Log("Init JPEG");
         turboJPEGHandle = TjInitDecompress();
     }
 
@@ -193,7 +196,7 @@ public class Record3DVideo
         rgbBuffer = new byte[width * height * 3];
         rgbBufferBG = new byte[width * height * 3];
         positionsBuffer = new float[width * height * 4];
-        turboJPEGHandle = TjInitDecompress();
+        //turboJPEGHandle = TjInitDecompress();
     }
 
     byte[] lzfseDepthBuffer;
@@ -226,22 +229,24 @@ public class Record3DVideo
         }
 
         // Decompress the JPG image into a byte buffer
-        //byte[] jpgBuffer;
-        //using (var jpgStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/{0}.jpg", frameIdx)).Open()) {
-        //    //jpgStream.CopyTo(colorStream);
-        //    //jpgBuffer = colorStream.GetBuffer();
-        //    using (var memoryStream = new MemoryStream()) {
-        //        jpgStream.CopyTo(memoryStream);
-        //        //jpgBuffer = memoryStream.ToArray();
-        //        jpgBuffer = memoryStream.GetBuffer();
-        //    }
-        //}
-        using (var jpgStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/fg/fgColor{0}.jpg", frameIdx)).Open()) {
-            using (var memoryStream = new MemoryStream()) {
+        byte[] jpgBuffer;
+        using (var jpgStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/{0}.jpg", frameIdx)).Open())
+        {
+            //jpgStream.CopyTo(colorStream);
+            //jpgBuffer = colorStream.GetBuffer();
+            using (var memoryStream = new MemoryStream())
+            {
                 jpgStream.CopyTo(memoryStream);
+                //jpgBuffer = memoryStream.ToArray();
                 jpgBuffer = memoryStream.GetBuffer();
             }
         }
+        //using (var jpgStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/fg/fgColor{0}.jpg", frameIdx)).Open()) {
+        //    using (var memoryStream = new MemoryStream()) {
+        //        jpgStream.CopyTo(memoryStream);
+        //        jpgBuffer = memoryStream.GetBuffer();
+        //    }
+        //}
         using (var bgJpgStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/bg/bgColor{0}.jpg", frameIdx)).Open()) {
             using (var memoryStream = new MemoryStream()) {
                 bgJpgStream.CopyTo(memoryStream);
@@ -257,20 +262,26 @@ public class Record3DVideo
         //DecompressColor(jpgBuffer, (uint)jpgBuffer.Length, this.rgbBuffer, out loadedRGBWidth, out loadedRGBHeight);
         //long etc = SystemDataFlowMeasurements.GetUnixTS();
         //Debug.Log($"Color decode time {etc - stc}");
+
         IntPtr jpgPtr = ConvertByteArrayToIntPtr(jpgBuffer);
         int result = -1;
-        unsafe {
-            fixed (byte* ptr = this.rgbBuffer) {
+        unsafe
+        {
+            fixed (byte* ptr = this.rgbBuffer)
+            {
                 st = SystemDataFlowMeasurements.GetUnixTS();
                 result = tjDecompress2(turboJPEGHandle, jpgPtr, (uint)jpgBuffer.Length, (IntPtr)ptr, loadedRGBWidth, 0, loadedRGBHeight, 0, 0);
                 et = SystemDataFlowMeasurements.GetUnixTS();
             }
         }
-        if (jpgBufferBG != null) {
+        if (jpgBufferBG != null)
+        {
             IntPtr jpgBGPtr = ConvertByteArrayToIntPtr(jpgBufferBG);
             result = -1;
-            unsafe {
-                fixed (byte* ptr = this.rgbBufferBG) {
+            unsafe
+            {
+                fixed (byte* ptr = this.rgbBufferBG)
+                {
                     st = SystemDataFlowMeasurements.GetUnixTS();
                     result = tjDecompress2(turboJPEGHandle, jpgBGPtr, (uint)jpgBufferBG.Length, (IntPtr)ptr, loadedRGBWidth, 0, loadedRGBHeight, 0, 0);
                     et = SystemDataFlowMeasurements.GetUnixTS();

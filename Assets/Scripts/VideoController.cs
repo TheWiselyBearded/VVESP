@@ -72,7 +72,7 @@ public class VideoController : MonoBehaviour
             frameCounter--;
             frameCounter = (frameCounter - (videoPlayer.numberOfFrames) * -1) % (videoPlayer.numberOfFrames);
         }
-        Debug.Log($"Frame Counter {frameCounter}");
+        //Debug.Log($"Frame Counter {frameCounter}");
     }
 
 }

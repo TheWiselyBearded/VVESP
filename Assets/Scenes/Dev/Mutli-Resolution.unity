@@ -136,6 +136,7 @@ GameObject:
   - component: {fileID: 12242065}
   - component: {fileID: 12242064}
   - component: {fileID: 12242068}
+  - component: {fileID: 12242069}
   m_Layer: 0
   m_Name: HighQuality
   m_TagString: Untagged
@@ -213,7 +214,7 @@ VisualEffect:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 12242063}
   m_Enabled: 1
-  m_Asset: {fileID: 8926484042661614526, guid: 555edab4a660f0a48aecaa36efd73657, type: 3}
+  m_Asset: {fileID: 8926484042661614526, guid: eb7306e2155894c6f9f17dedece8ef64, type: 3}
   m_InitialEventName: OnPlay
   m_InitialEventNameOverriden: 0
   m_StartSeed: 0
@@ -288,10 +289,30 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 949dfb4eccd1c0c4abd39e2763571069, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  serverAddress: 192.168.0.125
+  serverAddress: 127.0.0.1
   serverPort: 12345
   playback: {fileID: 12242064}
   videoController: {fileID: 162972263}
+--- !u!114 &12242069
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 12242063}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 351b216051f0f4d6f9268639d4da516c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  streamEffects: {fileID: 12242066}
+  effects:
+  - {fileID: 8926484042661614526, guid: 5332dd9fcaa324a5cb0c966f6d91d135, type: 3}
+  - {fileID: 8926484042661614526, guid: 9615e18968f1745a4aa79cecfd110b9b, type: 3}
+  - {fileID: 8926484042661614526, guid: c1313d5bece604ac28ae18153404b593, type: 3}
+  - {fileID: 8926484042661614526, guid: b93338c12b3fe472c9d486109ca04e29, type: 3}
+  - {fileID: 8926484042661614526, guid: 555edab4a660f0a48aecaa36efd73657, type: 3}
+  effectIndex: 0
 --- !u!1 &162972262
 GameObject:
   m_ObjectHideFlags: 0
@@ -749,7 +770,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!73398921 &854262884
 VFXRenderer:
   serializedVersion: 1
@@ -758,7 +779,7 @@ VFXRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 854262883}
-  m_Enabled: 1
+  m_Enabled: 0
   m_CastShadows: 0
   m_ReceiveShadows: 0
   m_DynamicOccludee: 1
