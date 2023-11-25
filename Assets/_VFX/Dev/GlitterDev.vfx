@@ -318,8 +318,8 @@ MonoBehaviour:
   m_GraphVersion: 12
   m_ResourceVersion: 1
   m_SubgraphDependencies:
-  - {fileID: 5371698745253816930, guid: 478178caed73b44df9394a8c37b06d4e, type: 3}
   - {fileID: 5371698745253816930, guid: 55122d44289cc5843ba0e6faf1e80ce6, type: 3}
+  - {fileID: 5371698745253816930, guid: 478178caed73b44df9394a8c37b06d4e, type: 3}
   m_CategoryPath: 
 --- !u!114 &114380859405582094
 MonoBehaviour:
@@ -4141,7 +4141,7 @@ MonoBehaviour:
       m_Type:
         m_SerializableType: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
           PublicKeyToken=b77a5c561934e089
-      m_SerializableObject: -2.59
+      m_SerializableObject: -1.89
     m_Space: 2147483647
   m_Property:
     name: right

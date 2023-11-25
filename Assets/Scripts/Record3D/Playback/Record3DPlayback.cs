@@ -271,29 +271,22 @@ public partial class Record3DPlayback
         //if (currentVideo_ == null) LoadVid();
 
         //if (streamEffect)
-        //Debug.Log($"Load frame {frameNumber}");
-        currentVideo_.LoadFrameData(frameNumber);
+
+        //currentVideo_.LoadFrameData(frameNumber);
+        _ = currentVideo_.LoadFrameDataAsync(frameNumber);
         //currentVideo_.LoadFrameDataUncompressed(frameNumber); // dev
         currentFrame_ = frameNumber;
 
         //LoadFrameDataLocal(frameNumber);  // if local pc
         //LoadColorDataLocal(frameNumber);
 
-        cR.enableRandomWrite = true;
-        dR.enableRandomWrite = true;
-
-        //SetNativeVertexArrays();
-
         //var positionTexBufferSize = positionTex.width * positionTex.height * 4;
         //NativeArray<float>.Copy(currentVideo_.positionsBuffer, positionTex.GetRawTextureData<float>(), positionTexBufferSize);
         st = SystemDataFlowMeasurements.GetUnixTS();
-        positionTex.SetPixelData<float>(currentVideo_.positionsBuffer, 0, 0);
-        //SetPositionBuffer();
+        positionTex.SetPixelData<float>(currentVideo_.positionsBuffer, 0, 0);        
         positionTex.Apply(false, false);
-        //Graphics.Blit(positionTex, dR);
 
         et = SystemDataFlowMeasurements.GetUnixTS();
-        //Debug.Log($"Time diff depth {et-st}, size {currentVideo_.positionsBuffer.Length}");
 
         st = SystemDataFlowMeasurements.GetUnixTS();
         const int numRGBChannels = 3;
@@ -301,32 +294,19 @@ public partial class Record3DPlayback
 
         // Assuming jpgData is your JPEG image data as a byte array
         st = SystemDataFlowMeasurements.GetUnixTS();
-        //colorTex.LoadImage(currentVideo_.jpgBuffer);
 
-        colorTex.SetPixelData<byte>(currentVideo_.rgbBuffer, 0, 0);
+        //colorTex.LoadImage(currentVideo_.jpgBuffer);
         //colorTex.LoadImage(currentVideo_.rgbBuffer);
-        colorTex.Apply(false, false);
-        //ImageConversion.LoadImage(colorTex, currentVideo_.jpgBuffer);
         //NativeArray<byte>.Copy(currentVideo_.rgbBuffer, colorTex.GetRawTextureData<byte>(), colorTexBufferSize);
+        colorTex.SetPixelData<byte>(currentVideo_.rgbBuffer, 0, 0);
+        colorTex.Apply(false, false);        
         et = SystemDataFlowMeasurements.GetUnixTS();
         //Debug.Log($"Time diff color load image {et-st}");
-        //RotateImage(colorTex, 180f);
-
-        //colorTex.Apply(false, false);
-        //Graphics.Blit(colorTex, cR);
-
+        
         if (currentVideo_.rgbBufferBG != null) {
             colorTexBG.SetPixelData<byte>(currentVideo_.rgbBufferBG, 0, 0);
             colorTexBG.Apply(false, false);
         }
-
-
-        //st = SystemDataFlowMeasurements.GetUnixTS();
-        //ReverseTextureRows(colorTex);
-        //et = SystemDataFlowMeasurements.GetUnixTS();
-        //Debug.Log($"reverse textures {et - st}");
-
-        //Debug.Log($"Time diff color {et - st}, size {currentVideo_.rgbBuffer.Length}");
 
         ///SAVING RAW DECOMPRESSED DATA TO DISK
         //SaveFloatArrayToDisk(currentVideo_.positionsBuffer, frameNumber);

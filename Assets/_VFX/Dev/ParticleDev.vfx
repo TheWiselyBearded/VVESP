@@ -417,7 +417,8 @@ MonoBehaviour:
   m_ImportDependencies: []
   m_GraphVersion: 12
   m_ResourceVersion: 1
-  m_SubgraphDependencies: []
+  m_SubgraphDependencies:
+  - {fileID: 5371698745253816930, guid: b265bbc615b014705aee007a35a8da4f, type: 3}
   m_CategoryPath: 
 --- !u!114 &114380859405582094
 MonoBehaviour:
