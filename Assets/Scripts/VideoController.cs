@@ -33,7 +33,6 @@ public class VideoController : MonoBehaviour
 
     float t;
     private void Update() {
-
         //if (videoPlayer.zipArchive != null) startRendering = true;
         if (Input.GetKeyDown(KeyCode.P)) PausePlay();
         if (Input.GetKeyDown(KeyCode.LeftArrow)) SetRewind();
@@ -63,8 +62,9 @@ public class VideoController : MonoBehaviour
         //if (frameCounter > videoPlayer.numberOfFrames) frameCounter = 0;
         //if (frameCounter > 89) frameCounter = 0;
         //if (frameCounter > videoPlayer.numberOfFrames/2) frameCounter = 0;      
-        
-        videoPlayer.LoadFrame(frameCounter);
+
+        //videoPlayer.LoadFrame(frameCounter);
+        videoPlayer.LoadFrameAsync(frameCounter);
         if (playbackDirection == 0) {
             frameCounter++;
             frameCounter %= (videoPlayer.numberOfFrames);

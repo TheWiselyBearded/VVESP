@@ -70,7 +70,7 @@ MonoBehaviour:
   zTestMode: 0
   useAlphaClipping: 0
   generateMotionVector: 0
-  excludeFromTUAndAA: 0
+  excludeFromTAA: 0
   sortingPriority: 0
   m_SubOutputs:
   - {fileID: 8926484042661614540}
@@ -225,7 +225,7 @@ MonoBehaviour:
     x: -381
     y: -190
     width: 1967
-    height: 3772
+    height: 3771
 --- !u!114 &114350483966674976
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -7810,7 +7810,7 @@ MonoBehaviour:
       m_Type:
         m_SerializableType: System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral,
           PublicKeyToken=b77a5c561934e089
-      m_SerializableObject: True
+      m_SerializableObject: False
     m_Space: 2147483647
   m_Property:
     name: _vfx_enabled
@@ -8088,7 +8088,7 @@ MonoBehaviour:
   zTestMode: 0
   useAlphaClipping: 0
   generateMotionVector: 0
-  excludeFromTUAndAA: 0
+  excludeFromTAA: 0
   sortingPriority: 0
   m_SubOutputs: []
   colorMapping: 0
@@ -9182,7 +9182,7 @@ MonoBehaviour:
   zTestMode: 0
   useAlphaClipping: 0
   generateMotionVector: 0
-  excludeFromTUAndAA: 0
+  excludeFromTAA: 0
   sortingPriority: 0
   m_SubOutputs: []
   colorMapping: 0
@@ -9467,7 +9467,7 @@ MonoBehaviour:
       m_Type:
         m_SerializableType: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
           PublicKeyToken=b77a5c561934e089
-      m_SerializableObject: 0.008
+      m_SerializableObject: 0.01
     m_Space: 2147483647
   m_Property:
     name: Size

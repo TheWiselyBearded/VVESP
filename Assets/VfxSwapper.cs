@@ -20,4 +20,10 @@ public class VfxSwapper : MonoBehaviour
             effectIndex %= effects.Length;
         }
     }
+
+    public void SequenceVFX() {
+        streamEffects.visualEffectAsset = effects[effectIndex];
+        effectIndex++;
+        effectIndex %= effects.Length;
+    }
 }

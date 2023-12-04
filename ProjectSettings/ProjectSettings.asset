@@ -48,7 +48,6 @@ PlayerSettings:
   defaultScreenHeightWeb: 600
   m_StereoRenderingPath: 0
   m_ActiveColorSpace: 1
-  unsupportedMSAAFallback: 0
   m_SpriteBatchVertexThreshold: 300
   m_MTRendering: 1
   mipStripping: 0
@@ -138,8 +137,7 @@ PlayerSettings:
   loadStoreDebugModeEnabled: 0
   bundleVersion: 0.3
   preloadedAssets:
-  - {fileID: 11400000, guid: adf21563fe1ad4516bc739e252d28f4c, type: 2}
-  - {fileID: -8425264961656727786, guid: 445147c0342974476b46bcec84dac013, type: 2}
+  - {fileID: 11400000, guid: 4ee33e652f0129f489efa51c48a127b8, type: 2}
   metroInputSource: 0
   wsaTransparentSwapchain: 0
   m_HolographicPauseOnTrackingLoss: 1
@@ -150,7 +148,6 @@ PlayerSettings:
   isWsaHolographicRemotingEnabled: 0
   enableFrameTimingStats: 0
   enableOpenGLProfilerGPURecorders: 1
-  allowHDRDisplaySupport: 0
   useHDRDisplay: 0
   hdrBitDepth: 0
   m_ColorGamuts: 00000000
@@ -589,6 +586,7 @@ PlayerSettings:
   switchScreenResolutionBehavior: 2
   switchUseCPUProfiler: 0
   switchEnableFileSystemTrace: 0
+  switchUseGOLDLinker: 0
   switchLTOSetting: 0
   switchApplicationID: 0x01004b9000490000
   switchNSODependencies: 
@@ -718,6 +716,7 @@ PlayerSettings:
   switchSocketBufferEfficiency: 4
   switchSocketInitializeEnabled: 1
   switchNetworkInterfaceManagerInitializeEnabled: 1
+  switchPlayerConnectionEnabled: 1
   switchUseNewStyleFilepaths: 1
   switchUseLegacyFmodPriorities: 0
   switchUseMicroSleepForYield: 1

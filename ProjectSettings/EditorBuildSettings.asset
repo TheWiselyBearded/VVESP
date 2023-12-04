@@ -17,7 +17,7 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/Scenes/Dev/v0Prototype.unity
     guid: e43f6868c6cfd46488aa9d3cdc0fc6c5
-  - enabled: 1
+  - enabled: 0
     path: Assets/Samples/Meta XR Interaction SDK OVR Samples/59.0.0/Example Scenes/PlaybackControls.unity
     guid: ff45b22bd35f4924fa24195e6cbcac37
   - enabled: 1

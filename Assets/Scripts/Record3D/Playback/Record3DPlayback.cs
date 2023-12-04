@@ -15,6 +15,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using Unity.Jobs;
 using UnityEngine.UIElements;
+using System.Threading.Tasks;
 
 
 //[ExecuteInEditMode]
@@ -33,7 +34,7 @@ public partial class Record3DPlayback : MonoBehaviour
     // Playback
     private int currentFrame_ = 0;
     public bool isPlaying_ = false;
-    private Record3DVideo currentVideo_ = null;
+    public Record3DVideo currentVideo_ = null;
     private Timer videoFrameUpdateTimer_ = null;
     private bool shouldRefresh_ = false;
     private string lastLoadedVideoPath_ = null;
@@ -116,6 +117,16 @@ public partial class Record3DPlayback
         }
     }
 
+    public string[] colorPaths;
+    public string colorChoice;
+    private int colorIndex;
+
+
+    public void SequenceColorChoice() {
+        colorIndex++;
+        colorIndex %= colorPaths.Length;
+        currentVideo_.colorChoice = colorPaths[colorIndex];
+    }
 
     public void LoadVideo(string path, bool force = false)
     {
@@ -198,7 +209,8 @@ public partial class Record3DPlayback
         videoFrameUpdateTimer_.AutoReset = true;
         videoFrameUpdateTimer_.Elapsed += this.OnTimerTick;
 
-
+        //Record3DVideo.OnLoadDepth += OnLoadDepthEvent;
+        //Record3DVideo.OnLoadColor += OnLoadColorEvent;
         //lastLoadedVideoPath_ = p;
     }
 
@@ -214,7 +226,9 @@ public partial class Record3DPlayback
         videoFrameUpdateTimer_.AutoReset = true;
         videoFrameUpdateTimer_.Elapsed += this.OnTimerTick;
 
-
+        currentVideo_.colorChoice = colorPaths[0];
+        //Record3DVideo.OnLoadDepth += OnLoadDepthEvent;
+        //Record3DVideo.OnLoadColor += OnLoadColorEvent;
         //lastLoadedVideoPath_ = p;
     }
 
@@ -264,6 +278,53 @@ public partial class Record3DPlayback
 
 
     private long st, et;
+    public async void LoadFrameAsync(int frameNumber) {
+        if (isPlaying_ == false) return;
+
+        currentVideo_.LoadFrameData(frameNumber);
+        //var decodeTask = Task.Run(() => currentVideo_.LoadFrameDataAsync(frameNumber).Wait());        
+        currentFrame_ = frameNumber;
+
+        const int numRGBChannels = 3;
+        var colorTexBufferSize = colorTex.width * colorTex.height * numRGBChannels * sizeof(byte);
+
+        st = SystemDataFlowMeasurements.GetUnixTS();
+        positionTex.SetPixelData<float>(currentVideo_.positionsBuffer, 0, 0);
+        positionTex.Apply(false, false);
+        et = SystemDataFlowMeasurements.GetUnixTS();
+
+        st = SystemDataFlowMeasurements.GetUnixTS();
+        colorTex.SetPixelData<byte>(currentVideo_.rgbBuffer, 0, 0);
+        colorTex.Apply(false, false);
+        et = SystemDataFlowMeasurements.GetUnixTS();
+        //Debug.Log($"Time diff color load image {et-st}");
+
+        if (currentVideo_.rgbBufferBG != null) {
+            colorTexBG.SetPixelData<byte>(currentVideo_.rgbBufferBG, 0, 0);
+            colorTexBG.Apply(false, false);
+        }
+    }
+
+
+    public void OnLoadDepthEvent(float[] positions) {
+        Debug.Log("Load depth delegate");
+        st = SystemDataFlowMeasurements.GetUnixTS();
+        positionTex.SetPixelData<float>(positions, 0, 0);
+        positionTex.Apply(false, false);
+        et = SystemDataFlowMeasurements.GetUnixTS();
+    }
+
+    public void OnLoadColorEvent(byte[] colors) {
+        Debug.Log("Load color delegate");
+        const int numRGBChannels = 3;
+        var colorTexBufferSize = colorTex.width * colorTex.height * numRGBChannels * sizeof(byte);
+
+        st = SystemDataFlowMeasurements.GetUnixTS();
+        colorTex.SetPixelData<byte>(colors, 0, 0);
+        colorTex.Apply(false, false);
+        et = SystemDataFlowMeasurements.GetUnixTS();
+    }
+
     public void LoadFrame(int frameNumber)
     {
         if (isPlaying_ == false) return;
@@ -275,6 +336,7 @@ public partial class Record3DPlayback
         //currentVideo_.LoadFrameData(frameNumber);
         _ = currentVideo_.LoadFrameDataAsync(frameNumber);
         //currentVideo_.LoadFrameDataUncompressed(frameNumber); // dev
+        
         currentFrame_ = frameNumber;
 
         //LoadFrameDataLocal(frameNumber);  // if local pc

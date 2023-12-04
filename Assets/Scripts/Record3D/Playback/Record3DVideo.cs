@@ -52,13 +52,14 @@ public class Record3DVideo
         public int fps;
     }
 
-#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
-    private const string JPG_LIBRARY_NAME = "turbojpeg";
-#elif UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
-    private const string JPG_LIBRARY_NAME = "libturbojpeg";
-#elif UNITY_ANDROID
-    private const string JPG_LIBRARY_NAME = "jpeg-turbo";
-#endif
+    #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
+        private const string JPG_LIBRARY_NAME = "turbojpeg";
+    #elif UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+        private const string JPG_LIBRARY_NAME = "libturbojpeg";
+    #elif UNITY_ANDROID
+        private const string JPG_LIBRARY_NAME = "jpeg-turbo";
+    #endif
+    //private const string JPG_LIBRARY_NAME = "jpeg-turbo";
 
 
     [DllImport(JPG_LIBRARY_NAME, CallingConvention = CallingConvention.Cdecl, EntryPoint = "tjDecompress2")]
@@ -73,7 +74,7 @@ public class Record3DVideo
 #elif UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
     private const string LIBRARY_NAME = "librecord3d_unity_playback.dylib";
 #elif UNITY_ANDROID
-    private const string LIBRARY_NAME = "librecord3d_unity_playback.so"; //"record3d_unity_playback.dll";
+    private const string LIBRARY_NAME = "record3d_unity_playback"; //"record3d_unity_playback.dll";
 #else
 #error "Unsupported platform!"
 #endif
@@ -123,6 +124,15 @@ public class Record3DVideo
     private static extern void PopulatePositionBuffer(IntPtr lzfseDecodedDepthBytes, int loadedRGBWidth, int loadedRGBHeight, UInt32 lzfseBytesSize, float[] poseBuffer, UInt32 outSize, UInt32 width, UInt32 height, float fx, float fy, float tx, float ty);
 
 
+    public delegate void LoadDepthAction(float[] pos);
+    public static event LoadDepthAction OnLoadDepth;
+
+    public delegate void LoadColorAction(byte[] colors);
+    public static event LoadColorAction OnLoadColor;
+
+    public string colorChoice;
+
+
     protected IntPtr turboJPEGHandle;
 
     // Method to convert the unmanaged array to a managed array and then free the unmanaged array.
@@ -132,6 +142,7 @@ public class Record3DVideo
         Marshal.FreeCoTaskMem(unmanagedArray); // Assume the C++ side uses CoTaskMemAlloc or compatible for allocation.
         return managedArray;
     }
+
 
     public Record3DVideo(ZipArchive z) {
         //currentVideo_ = new Record3DVideo(path);        
@@ -224,22 +235,24 @@ public class Record3DVideo
             }
         }
 
-        using (var jpgStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/{0}.jpg", frameIdx)).Open())
-        {
-            //jpgBuffer = colorStream.GetBuffer();
-            using (var memoryStream = new MemoryStream())
-            {
-                jpgStream.CopyTo(memoryStream);
-                //jpgBuffer = memoryStream.ToArray();
-                jpgBuffer = memoryStream.GetBuffer();
-            }
-        }
-        //using (var jpgStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/fg/fgColor{0}.jpg", frameIdx)).Open()) {
-        //    using (var memoryStream = new MemoryStream()) {
+        //using (var jpgStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/{0}.jpg", frameIdx)).Open())
+        //{
+        //    //jpgBuffer = colorStream.GetBuffer();
+        //    using (var memoryStream = new MemoryStream())
+        //    {
         //        jpgStream.CopyTo(memoryStream);
+        //        //jpgBuffer = memoryStream.ToArray();
         //        jpgBuffer = memoryStream.GetBuffer();
         //    }
         //}
+        //using (var jpgStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/{0}.jpg", frameIdx)).Open()) {
+        //using (var jpgStream = underlyingZip_.GetEntry(String.Format(colorChoice, frameIdx)).Open()) {
+        using (var jpgStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/fg/fgColor{0}.jpg", frameIdx)).Open()) {        
+            using (var memoryStream = new MemoryStream()) {
+                jpgStream.CopyTo(memoryStream);
+                jpgBuffer = memoryStream.GetBuffer();
+            }
+        }
         using (var bgJpgStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/bg/bgColor{0}.jpg", frameIdx)).Open()) {
             using (var memoryStream = new MemoryStream()) {
                 bgJpgStream.CopyTo(memoryStream);
@@ -317,26 +330,25 @@ public class Record3DVideo
         var decodeDepthBlock = new ActionBlock<byte[]>(async depthBuffer =>
         {
             IntPtr decodedDepthDataPtr = IntPtr.Zero;
+            //ulong totalDecompressDepth = 0;
+            //var decodeT = await Task.Run(() => totalDecompressDepth = DecompressDepth(depthBuffer, (uint)depthBuffer.Length, out decodedDepthDataPtr, width_, height_));
             ulong totalDecompressDepth = DecompressDepth(depthBuffer, (uint)depthBuffer.Length, out decodedDepthDataPtr, width_, height_);
-
             long stPPBL = SystemDataFlowMeasurements.GetUnixTS();
             PopulatePositionBuffer(decodedDepthDataPtr, 1440, 1920, (uint)depthBuffer.Length, positionsBuffer, (uint)totalDecompressDepth, (uint)width_, (uint)height_, fx_, fy_, tx_, ty_);
             long etPPBL = SystemDataFlowMeasurements.GetUnixTS();
-
-            // Perform further processing if needed
-
-            //await Task.Yield(); // Simulate additional processing
+            await Task.Yield(); // Simulate additional processing
         });
 
         // Link the TransformBlock to the ActionBlock
         loadDepthBlock.LinkTo(decodeDepthBlock, new DataflowLinkOptions { PropagateCompletion = true });
         // Post the frame index to the TransformBlock to start the processing
+        Debug.Log("Posting data into depth block");
         loadDepthBlock.Post(frameIdx);
 
         // Create a TransformBlock to read color data into memory
         var loadColorBlock = new TransformBlock<int, byte[]>(async idx =>
         {
-            using (var jpgStream = underlyingZip_.GetEntry($"capture/rgbd/{idx}.jpg").Open())
+            using (var jpgStream = underlyingZip_.GetEntry($"capture/rgbd/fg/fgColor{idx}.jpg").Open())
             {
                 using (var memoryStream = new MemoryStream())
                 {
@@ -351,7 +363,7 @@ public class Record3DVideo
         {
             int loadedRGBWidth = 1440;
             int loadedRGBHeight = 1920;
-
+            //await Task.Delay(33);
             IntPtr jpgPtr = ConvertByteArrayToIntPtr(colorBuffer);
             int result = -1;
             unsafe
@@ -360,23 +372,53 @@ public class Record3DVideo
                 {
                     st = SystemDataFlowMeasurements.GetUnixTS();
                     result = tjDecompress2(turboJPEGHandle, jpgPtr, (uint)colorBuffer.Length, (IntPtr)ptr, loadedRGBWidth, 0, loadedRGBHeight, 0, 0);
+                    //var colorDecodeT = await Task.Run(() => result = tjDecompress2(turboJPEGHandle, jpgPtr, (uint)colorBuffer.Length, (IntPtr)ptr, loadedRGBWidth, 0, loadedRGBHeight, 0, 0));
                     et = SystemDataFlowMeasurements.GetUnixTS();
                 }
-            } 
-            //await Task.Yield(); // Simulate additional processing
+            }
+            await Task.Yield(); // Simulate additional processing
+
         });
+        var loadColorBGBlock = new TransformBlock<int, byte[]>(async idx => {
+            using (var jpgStream = underlyingZip_.GetEntry($"capture/rgbd/bg/bgColor{idx}.jpg").Open()) {
+                using (var memoryStream = new MemoryStream()) {
+                    await jpgStream.CopyToAsync(memoryStream);
+                    return memoryStream.GetBuffer();
+                }
+            }
+        });
+        var decodeColorBGBlock = new ActionBlock<byte[]>(async colorBuffer => {
+            int loadedRGBWidth = 1440;
+            int loadedRGBHeight = 1920;
+            //await Task.Delay(66);
+            IntPtr jpgPtr = ConvertByteArrayToIntPtr(colorBuffer);
+            int result = -1;
+            unsafe {
+                fixed (byte* ptr = rgbBufferBG) {
+                    st = SystemDataFlowMeasurements.GetUnixTS();
+                    result = tjDecompress2(turboJPEGHandle, jpgPtr, (uint)colorBuffer.Length, (IntPtr)ptr, loadedRGBWidth, 0, loadedRGBHeight, 0, 0);
+                    //var colorDecodeT = await Task.Run(() => result = tjDecompress2(turboJPEGHandle, jpgPtr, (uint)colorBuffer.Length, (IntPtr)ptr, loadedRGBWidth, 0, loadedRGBHeight, 0, 0));
+                    et = SystemDataFlowMeasurements.GetUnixTS();
+                }
+            }
+            await Task.Yield(); // Simulate additional processing
+
+        });
+
+
         // Link the TransformBlock to the ActionBlock
         loadColorBlock.LinkTo(decodeColorBlock, new DataflowLinkOptions { PropagateCompletion = true });
-
-        // Post the frame index to the TransformBlock to start the processing
         loadColorBlock.Post(frameIdx);
+        await Task.Delay(1000);
+        loadColorBGBlock.LinkTo(decodeColorBGBlock, new DataflowLinkOptions { PropagateCompletion = true });
+        loadColorBGBlock.Post(frameIdx);
 
         // Wait for both color and depth processing to complete
         //await Task.WhenAll(decodeDepthBlock.Completion, decodeColorBlock.Completion);
 
         // Perform any final processing after both color and depth processing is done
         et = SystemDataFlowMeasurements.GetUnixTS();
-        Debug.Log($"Time diff async {et-st}");
+        //Debug.Log($"Time diff async {et-st}");
     }
 
     public static IntPtr ConvertByteArrayToIntPtr(byte[] byteArray) {
@@ -394,6 +436,14 @@ public class Record3DVideo
         } finally {
             // Release the GCHandle when you're done with the IntPtr
             handle.Free();
+        }
+    }
+
+    public void ReleaseNativeMemory(IntPtr memoryPtr) {
+        // Check if the memory pointer is valid (not null or IntPtr.Zero)
+        if (memoryPtr != IntPtr.Zero) {
+            // Free the native memory using Marshal.FreeHGlobal
+            Marshal.FreeHGlobal(memoryPtr);
         }
     }
 

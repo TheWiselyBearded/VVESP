@@ -81,7 +81,7 @@ MonoBehaviour:
   zTestMode: 0
   useAlphaClipping: 0
   generateMotionVector: 0
-  excludeFromTUAndAA: 0
+  excludeFromTAA: 0
   sortingPriority: 0
   m_SubOutputs:
   - {fileID: 8926484042661614540}
@@ -203,7 +203,7 @@ MonoBehaviour:
     x: -381
     y: -190
     width: 1967
-    height: 3294
+    height: 3292
 --- !u!114 &114350483966674976
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -214,7 +214,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7d4c867f6b72b714dbb5fd1780afe208, type: 3}
-  m_Name: GlitterDev
+  m_Name: Filled
   m_EditorClassIdentifier: 
   m_UIIgnoredErrors: []
   m_Parent: {fileID: 0}
@@ -317,8 +317,8 @@ MonoBehaviour:
   m_GraphVersion: 12
   m_ResourceVersion: 1
   m_SubgraphDependencies:
-  - {fileID: 5371698745253816930, guid: 478178caed73b44df9394a8c37b06d4e, type: 3}
   - {fileID: 5371698745253816930, guid: 55122d44289cc5843ba0e6faf1e80ce6, type: 3}
+  - {fileID: 5371698745253816930, guid: 478178caed73b44df9394a8c37b06d4e, type: 3}
   m_CategoryPath: 
 --- !u!114 &114380859405582094
 MonoBehaviour:
@@ -741,7 +741,7 @@ VisualEffectResource:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: GlitterDev
+  m_Name: Filled
   m_Graph: {fileID: 114350483966674976}
   m_Infos:
     m_RendererSettings:

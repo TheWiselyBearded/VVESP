@@ -76,7 +76,7 @@ MonoBehaviour:
   zTestMode: 0
   useAlphaClipping: 0
   generateMotionVector: 0
-  excludeFromTUAndAA: 0
+  excludeFromTAA: 0
   sortingPriority: 0
   m_SubOutputs:
   - {fileID: 8926484042661614540}
@@ -230,7 +230,7 @@ MonoBehaviour:
     x: -381
     y: -190
     width: 1967
-    height: 2640
+    height: 2638
 --- !u!114 &114350483966674976
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -4847,8 +4847,7 @@ MonoBehaviour:
       m_SerializableType: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
         PublicKeyToken=b77a5c561934e089
   m_Direction: 1
-  m_LinkedSlots:
-  - {fileID: 8926484042661615459}
+  m_LinkedSlots: []
 --- !u!114 &8926484042661615378
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4881,8 +4880,7 @@ MonoBehaviour:
       m_SerializableType: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
         PublicKeyToken=b77a5c561934e089
   m_Direction: 1
-  m_LinkedSlots:
-  - {fileID: 8926484042661615460}
+  m_LinkedSlots: []
 --- !u!114 &8926484042661615379
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4915,7 +4913,8 @@ MonoBehaviour:
       m_SerializableType: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
         PublicKeyToken=b77a5c561934e089
   m_Direction: 1
-  m_LinkedSlots: []
+  m_LinkedSlots:
+  - {fileID: 8926484042661615461}
 --- !u!114 &8926484042661615380
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5715,7 +5714,7 @@ MonoBehaviour:
       m_Type:
         m_SerializableType: UnityEngine.Color, UnityEngine.CoreModule, Version=0.0.0.0,
           Culture=neutral, PublicKeyToken=null
-      m_SerializableObject: '{"r":0.16838735342025758,"g":0.42678970098495486,"b":1.0,"a":0.30000001192092898}'
+      m_SerializableObject: '{"r":0.0,"g":0.0,"b":1.0,"a":0.30000001192092898}'
     m_Space: 2147483647
   m_Property:
     name: _Base_Color
@@ -5756,8 +5755,7 @@ MonoBehaviour:
       m_SerializableType: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
         PublicKeyToken=b77a5c561934e089
   m_Direction: 0
-  m_LinkedSlots:
-  - {fileID: 8926484042661615377}
+  m_LinkedSlots: []
 --- !u!114 &8926484042661615460
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5790,8 +5788,7 @@ MonoBehaviour:
       m_SerializableType: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
         PublicKeyToken=b77a5c561934e089
   m_Direction: 0
-  m_LinkedSlots:
-  - {fileID: 8926484042661615378}
+  m_LinkedSlots: []
 --- !u!114 &8926484042661615461
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5824,7 +5821,8 @@ MonoBehaviour:
       m_SerializableType: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
         PublicKeyToken=b77a5c561934e089
   m_Direction: 0
-  m_LinkedSlots: []
+  m_LinkedSlots:
+  - {fileID: 8926484042661615379}
 --- !u!114 &8926484042661615462
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5985,7 +5983,7 @@ MonoBehaviour:
       m_Type:
         m_SerializableType: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
           PublicKeyToken=b77a5c561934e089
-      m_SerializableObject: 1.5
+      m_SerializableObject: 3
     m_Space: 2147483647
   m_Property:
     name: _Scroll_Speed
