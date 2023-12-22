@@ -4,7 +4,6 @@ using System.IO.Compression;
 using System.Net.Sockets;
 using System;
 using System.Threading;
-using UnityEditor.PackageManager;
 using PimDeWitte.UnityMainThreadDispatcher;
 
 public class ReceiveAndExtractZip : MonoBehaviour

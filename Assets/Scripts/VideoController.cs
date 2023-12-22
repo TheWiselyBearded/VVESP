@@ -38,8 +38,12 @@ public class VideoController : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.LeftArrow)) SetRewind();
         if (Input.GetKeyDown(KeyCode.RightArrow)) SetForward();
 
-
-        if (startRendering && videoPlayer.isPlaying_)  SequenceFrame();
+        t += Time.deltaTime;
+        if (t >= 0.10)
+        {
+            if (startRendering && videoPlayer.isPlaying_)  SequenceFrame();
+            t = 0;
+        } 
         
         //NextFrame();
     }

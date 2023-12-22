@@ -24,7 +24,7 @@ public class DataLayer
 
             while (encodedBuffer.TryReceive(out ValueTuple<byte[], byte[]> frameDatablock))
             {
-                Debug.Log($"Color Data Length {frameDatablock.Item1.Length}, Depth Data Length {frameDatablock.Item2.Length}");
+                //Debug.Log($"Color Data Length {frameDatablock.Item1.Length}, Depth Data Length {frameDatablock.Item2.Length}");
 
 
             }

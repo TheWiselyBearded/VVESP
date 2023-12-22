@@ -81,7 +81,7 @@ MonoBehaviour:
   zTestMode: 0
   useAlphaClipping: 0
   generateMotionVector: 0
-  excludeFromTAA: 0
+  excludeFromTUAndAA: 0
   sortingPriority: 0
   m_SubOutputs:
   - {fileID: 8926484042661614540}
@@ -203,7 +203,7 @@ MonoBehaviour:
     x: -381
     y: -190
     width: 1967
-    height: 3292
+    height: 3294
 --- !u!114 &114350483966674976
 MonoBehaviour:
   m_ObjectHideFlags: 1

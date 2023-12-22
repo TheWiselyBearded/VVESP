@@ -428,7 +428,7 @@ public class Record3DVideo
         // Link the TransformBlock to the ActionBlock
         loadColorBlock.LinkTo(decodeColorBlock, new DataflowLinkOptions { PropagateCompletion = true });
         loadColorBlock.Post(frameIdx);
-        await Task.Delay(1000);
+        //await Task.Delay(1000);
         loadColorBGBlock.LinkTo(decodeColorBGBlock, new DataflowLinkOptions { PropagateCompletion = true });
         loadColorBGBlock.Post(frameIdx);
 
@@ -447,8 +447,8 @@ public class Record3DVideo
 
             while (DataLayer.encodedBuffer.TryReceive(out ValueTuple<byte[], byte[]> frameDatablock))
             {
-                Debug.Log($"Color Data Length {frameDatablock.Item1.Length}, Depth Data Length {frameDatablock.Item2.Length}");
-                IntPtr jpgPtr = ConvertByteArrayToIntPtr(frameDatablock.Item1);
+                //Debug.Log($"Color Data Length {frameDatablock.Item1.Length}, Depth Data Length {frameDatablock.Item2.Length}");
+                /*IntPtr jpgPtr = ConvertByteArrayToIntPtr(frameDatablock.Item1);
                 int result = -1;
                 unsafe
                 {
@@ -476,6 +476,43 @@ public class Record3DVideo
                     (uint)this.width_, (uint)this.height_,
                     this.fx_, this.fy_, this.tx_, this.ty_);
 
+                await Task.Delay(33);*/
+                var decodeColorBlock = new ActionBlock<byte[]>(async colorBuffer =>
+                {
+                    int loadedRGBWidth = 1440;
+                    int loadedRGBHeight = 1920;
+                    //await Task.Delay(33);
+                    IntPtr jpgPtr = ConvertByteArrayToIntPtr(colorBuffer);
+                    int result = -1;
+                    unsafe
+                    {
+                        fixed (byte* ptr = rgbBuffer)
+                        {
+                            st = SystemDataFlowMeasurements.GetUnixTS();
+                            result = tjDecompress2(turboJPEGHandle, jpgPtr, (uint)colorBuffer.Length, (IntPtr)ptr, loadedRGBWidth, 0, loadedRGBHeight, 0, 0);
+                            //var colorDecodeT = await Task.Run(() => result = tjDecompress2(turboJPEGHandle, jpgPtr, (uint)colorBuffer.Length, (IntPtr)ptr, loadedRGBWidth, 0, loadedRGBHeight, 0, 0));
+                            et = SystemDataFlowMeasurements.GetUnixTS();
+                        }
+                    }
+                    //await Task.Yield(); // Simulate additional processing
+
+                });
+
+                // Create an ActionBlock to decode depth data
+                var decodeDepthBlock = new ActionBlock<byte[]>(async depthBuffer =>
+                {
+                    IntPtr decodedDepthDataPtr = IntPtr.Zero;
+                    //ulong totalDecompressDepth = 0;
+                    //var decodeT = await Task.Run(() => totalDecompressDepth = DecompressDepth(depthBuffer, (uint)depthBuffer.Length, out decodedDepthDataPtr, width_, height_));
+                    ulong totalDecompressDepth = DecompressDepth(depthBuffer, (uint)depthBuffer.Length, out decodedDepthDataPtr, width_, height_);
+                    long stPPBL = SystemDataFlowMeasurements.GetUnixTS();
+                    PopulatePositionBuffer(decodedDepthDataPtr, 1440, 1920, (uint)depthBuffer.Length, positionsBuffer, (uint)totalDecompressDepth, (uint)width_, (uint)height_, fx_, fy_, tx_, ty_);
+                    long etPPBL = SystemDataFlowMeasurements.GetUnixTS();
+                    //await Task.Yield(); // Simulate additional processing
+                });
+
+                decodeColorBlock.Post(frameDatablock.Item1);
+                decodeDepthBlock.Post(frameDatablock.Item2);
             }
         }
     }
