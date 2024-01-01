@@ -120,7 +120,8 @@ public partial class Record3DPlayback : MonoBehaviour
 
     protected void ConsumerCaptureBufferTaskStart()
     {
-        var consumerCaptureTask = Task.Run(() => currentVideo_.ConsumerCaptureData().Wait());        
+        //var consumerCaptureTask = Task.Run(() => currentVideo_.ConsumerCaptureData().Wait());
+        var consumerCaptureTask = Task.Run(() => currentVideo_.DataLayer.ConsumerCaptureData().Wait());
     }
 
 }
@@ -270,6 +271,11 @@ public partial class Record3DPlayback
 
 
     private long st, et;
+
+    /// <summary>
+    /// invoked externally from user-facing video controller interface
+    /// </summary>
+    /// <param name="frameNumber">frame number to load into pipeline</param>
     public async void LoadFrameAsync(int frameNumber) {
         if (isPlaying_ == false) return;
 
@@ -281,13 +287,16 @@ public partial class Record3DPlayback
         const int numRGBChannels = 3;
         var colorTexBufferSize = colorTex.width * colorTex.height * numRGBChannels * sizeof(byte);
 
+        // TODO: Add null checks?
         st = SystemDataFlowMeasurements.GetUnixTS();
-        positionTex.SetPixelData<float>(currentVideo_.positionsBuffer, 0, 0);
+        //positionTex.SetPixelData<float>(currentVideo_.positionsBuffer, 0, 0);
+        positionTex.SetPixelData<float>(currentVideo_.DataLayer.positionsBuffer, 0, 0);
         positionTex.Apply(false, false);
         et = SystemDataFlowMeasurements.GetUnixTS();
 
         st = SystemDataFlowMeasurements.GetUnixTS();
-        colorTex.SetPixelData<byte>(currentVideo_.rgbBuffer, 0, 0);
+        //colorTex.SetPixelData<byte>(currentVideo_.rgbBuffer, 0, 0);
+        colorTex.SetPixelData<byte>(currentVideo_.DataLayer.rgbBuffer, 0, 0);
         colorTex.Apply(false, false);
         et = SystemDataFlowMeasurements.GetUnixTS();
         //Debug.Log($"Time diff color load image {et-st}");
@@ -448,6 +457,8 @@ public partial class Record3DPlayback
         texture.Apply();
     }
 
+    #region LOCAL_READWRITE
+
     /// <summary>
     /// Load depth data
     /// </summary>
@@ -518,5 +529,7 @@ public partial class Record3DPlayback
 
         Debug.Log($"Saved color array to {fileName}");
     }
+
+    #endregion
 
 }
