@@ -114,6 +114,9 @@ public class Record3DVideo
     private static extern void PopulatePositionBuffer(IntPtr lzfseDecodedDepthBytes, int loadedRGBWidth, int loadedRGBHeight, UInt32 lzfseBytesSize, float[] poseBuffer, UInt32 outSize, UInt32 width, UInt32 height, float fx, float fy, float tx, float ty);
 
 
+    protected IntPtr turboJPEGHandle;
+
+
     public delegate void LoadDepthAction(float[] pos);
     public static event LoadDepthAction OnLoadDepth;
 
@@ -121,25 +124,23 @@ public class Record3DVideo
     public static event LoadColorAction OnLoadColor;
 
     public string colorChoice;
+    byte[] lzfseDepthBuffer;
+    public byte[] jpgBuffer;
+    public byte[] jpgBufferBG;
+    protected int loadedRGBWidth = 1440;
+    protected int loadedRGBHeight = 1920;
+    private long st, et;
 
 
-    protected IntPtr turboJPEGHandle;
-
-    // Method to convert the unmanaged array to a managed array and then free the unmanaged array.
-    private float[] GetManagedArray(IntPtr unmanagedArray, int length) {
-        float[] managedArray = new float[length];
-        Marshal.Copy(unmanagedArray, managedArray, 0, length);
-        Marshal.FreeCoTaskMem(unmanagedArray); // Assume the C++ side uses CoTaskMemAlloc or compatible for allocation.
-        return managedArray;
-    }
-
-
+    /// <summary>
+    /// invoked externally if zip archive downloaded from server
+    /// </summary>
+    /// <param name="z"></param>
     public Record3DVideo(ZipArchive z) {
-        //currentVideo_ = new Record3DVideo(path);        
-
-        //string[] d = BetterStreamingAssets.GetFiles("\\", "momcouch.r3d", SearchOption.AllDirectories);
+        //currentVideo_ = new Record3DVideo(path);                
          // new ZipArchive( //ZipFile.Open(d[0], ZipArchiveMode.Read);
         underlyingZip_ = z;
+        InitComponents();    // INIT MAIN COMPONENTS
 
         // Load metadata (FPS, the intrinsic matrix, dimensions)
         using (var metadataStream = new StreamReader(underlyingZip_.GetEntry("capture/metadata").Open())) {
@@ -156,6 +157,8 @@ public class Record3DVideo
             this.fy_ = parsedMetadata.K[4];
             this.tx_ = parsedMetadata.K[6];
             this.ty_ = parsedMetadata.K[7];
+
+            DataLayer.SetCameraMetadata(parsedMetadata);
         }
 
         this.numFrames_ = underlyingZip_.Entries.Count(x => x.FullName.Contains(".depth"));     
@@ -166,13 +169,22 @@ public class Record3DVideo
         rgbBuffer = new byte[width * height * 3];
         rgbBufferBG = new byte[width * height * 3];
         positionsBuffer = new float[width * height * 4];
-        //string p = "jar:file://" + Application.dataPath + "!/assets/momcouch.r3d";
-        Debug.Log("Init JPEG");
-        turboJPEGHandle = TjInitDecompress();
+        //string p = "jar:file://" + Application.dataPath + "!/assets/momcouch.r3d";        
+    }
+
+    /// <summary>
+    /// Component initializer
+    /// </summary>
+    public void InitComponents()
+    {        
+        //turboJPEGHandle = TjInitDecompress();
         DataLayer = new DataLayer();
     }
 
-
+    /// <summary>
+    /// Invoked locally if media files on device
+    /// </summary>
+    /// <param name="filepath"></param>
     public Record3DVideo(string filepath)
     {
         underlyingZip_ = ZipFile.Open(filepath, ZipArchiveMode.Read);
@@ -201,17 +213,7 @@ public class Record3DVideo
         rgbBufferBG = new byte[width * height * 3];
         positionsBuffer = new float[width * height * 4];
         //turboJPEGHandle = TjInitDecompress();
-    }
-
-    byte[] lzfseDepthBuffer;
-    public byte[] jpgBuffer;
-    public byte[] jpgBufferBG;
-    protected int loadedRGBWidth = 1440;
-    protected int loadedRGBHeight = 1920;
-    //MemoryStream depthStream = new MemoryStream();
-    //MemoryStream colorStream = new MemoryStream();
-
-    private long st, et;
+    }    
 
     public void FrameDataProduce(int frameIdx)
     {
@@ -280,7 +282,7 @@ public class Record3DVideo
         //st = SystemDataFlowMeasurements.GetUnixTS();
 
         // Call the C++ function and pass the loadedRGBWidth and loadedRGBHeight as out parameters
-        IntPtr jpgPtr = ConvertByteArrayToIntPtr(jpgBuffer);
+        IntPtr jpgPtr = VVP_Utilities.ConvertByteArrayToIntPtr(jpgBuffer);
         int result = -1;
         unsafe
         {
@@ -293,7 +295,7 @@ public class Record3DVideo
         }
         if (jpgBufferBG != null)
         {
-            IntPtr jpgBGPtr = ConvertByteArrayToIntPtr(jpgBufferBG);
+            IntPtr jpgBGPtr = VVP_Utilities.ConvertByteArrayToIntPtr(jpgBufferBG);
             result = -1;
             unsafe
             {
@@ -383,7 +385,7 @@ public class Record3DVideo
             int loadedRGBWidth = 1440;
             int loadedRGBHeight = 1920;
             //await Task.Delay(33);
-            IntPtr jpgPtr = ConvertByteArrayToIntPtr(colorBuffer);
+            IntPtr jpgPtr = VVP_Utilities.ConvertByteArrayToIntPtr(colorBuffer);
             int result = -1;
             unsafe
             {
@@ -410,7 +412,7 @@ public class Record3DVideo
             int loadedRGBWidth = 1440;
             int loadedRGBHeight = 1920;
             //await Task.Delay(66);
-            IntPtr jpgPtr = ConvertByteArrayToIntPtr(colorBuffer);
+            IntPtr jpgPtr = VVP_Utilities.ConvertByteArrayToIntPtr(colorBuffer);
             int result = -1;
             unsafe {
                 fixed (byte* ptr = rgbBufferBG) {
@@ -440,131 +442,7 @@ public class Record3DVideo
         //Debug.Log($"Time diff async {et-st}");
     }
 
-    public async Task ConsumerCaptureData()
-    {
-        while (await DataLayer.encodedBuffer.OutputAvailableAsync())
-        {    // subscribe for buffer write 
-
-            while (DataLayer.encodedBuffer.TryReceive(out ValueTuple<byte[], byte[]> frameDatablock))
-            {
-                //Debug.Log($"Color Data Length {frameDatablock.Item1.Length}, Depth Data Length {frameDatablock.Item2.Length}");
-                /*IntPtr jpgPtr = ConvertByteArrayToIntPtr(frameDatablock.Item1);
-                int result = -1;
-                unsafe
-                {
-                    fixed (byte* ptr = this.rgbBuffer)
-                    {
-                        st = SystemDataFlowMeasurements.GetUnixTS();
-                        result = tjDecompress2(turboJPEGHandle, jpgPtr, (uint)jpgBuffer.Length, (IntPtr)ptr, loadedRGBWidth, 0, loadedRGBHeight, 0, 0);
-                        et = SystemDataFlowMeasurements.GetUnixTS();
-                    }
-                }
-                
-
-                long stdcf = SystemDataFlowMeasurements.GetUnixTS();
-                IntPtr decodedDepthDataPtr = IntPtr.Zero;
-                ulong totalDecompressDepth = DecompressDepth(frameDatablock.Item2,
-                    (uint)frameDatablock.Item2.Length,
-                    out decodedDepthDataPtr,
-                    this.width_, this.height_);
-
-                PopulatePositionBuffer(decodedDepthDataPtr,
-                    1440, 1920,
-                    (uint)frameDatablock.Item2.Length,
-                    this.positionsBuffer,
-                    (uint)totalDecompressDepth,
-                    (uint)this.width_, (uint)this.height_,
-                    this.fx_, this.fy_, this.tx_, this.ty_);
-
-                await Task.Delay(33);*/
-
-                try
-                {
-                    var decodeColorBlock = new ActionBlock<byte[]>(async colorBuffer =>
-                    {
-                        int loadedRGBWidth = 1440;
-                        int loadedRGBHeight = 1920;
-                        //await Task.Delay(33);
-                        IntPtr jpgPtr = ConvertByteArrayToIntPtr(colorBuffer);
-                        int result = -1;
-                        unsafe
-                        {
-                            fixed (byte* ptr = rgbBuffer)
-                            {
-                                st = SystemDataFlowMeasurements.GetUnixTS();
-                                result = tjDecompress2(turboJPEGHandle, jpgPtr, (uint)colorBuffer.Length, (IntPtr)ptr, loadedRGBWidth, 0, loadedRGBHeight, 0, 0);
-                                //var colorDecodeT = await Task.Run(() => result = tjDecompress2(turboJPEGHandle, jpgPtr, (uint)colorBuffer.Length, (IntPtr)ptr, loadedRGBWidth, 0, loadedRGBHeight, 0, 0));
-                                et = SystemDataFlowMeasurements.GetUnixTS();
-                            }
-                        }
-                        //await Task.Yield(); // Simulate additional processing
-                    });
-                    decodeColorBlock.Post(frameDatablock.Item1);
-                }
-                catch (DllNotFoundException ex) { Debug.Log("Whoops, error!"); }
-                catch (EntryPointNotFoundException ex) { Debug.Log("Whoops, error!"); }
-                catch (Exception ex) { Debug.Log("Whoops, error!"); }
-
-
-                // Create an ActionBlock to decode depth data
-                var decodeDepthBlock = new ActionBlock<byte[]>(async depthBuffer =>
-                {
-                    IntPtr decodedDepthDataPtr = IntPtr.Zero;
-                    //ulong totalDecompressDepth = 0;
-                    //var decodeT = await Task.Run(() => totalDecompressDepth = DecompressDepth(depthBuffer, (uint)depthBuffer.Length, out decodedDepthDataPtr, width_, height_));
-                    try
-                    {
-                        ulong totalDecompressDepth = DecompressDepth(depthBuffer, (uint)depthBuffer.Length, out decodedDepthDataPtr, width_, height_);
-                        long stPPBL = SystemDataFlowMeasurements.GetUnixTS();
-                        PopulatePositionBuffer(decodedDepthDataPtr, 1440, 1920, (uint)depthBuffer.Length, positionsBuffer, (uint)totalDecompressDepth, (uint)width_, (uint)height_, fx_, fy_, tx_, ty_);
-                        long etPPBL = SystemDataFlowMeasurements.GetUnixTS();
-                    }
-                    catch (DllNotFoundException ex) { Debug.Log("Whoops, error!"); }
-                    catch (EntryPointNotFoundException ex) { Debug.Log("Whoops, error!"); }
-                    catch (Exception ex) { Debug.Log("Whoops, error!"); }
-
-                    //await Task.Yield(); // Simulate additional processing
-                });                
-                decodeDepthBlock.Post(frameDatablock.Item2);
-                }
-        }
-    }
-
-    public static IntPtr ConvertByteArrayToIntPtr(byte[] byteArray) {
-        // Check if the input array is not null
-        if (byteArray == null) {
-            throw new ArgumentNullException(nameof(byteArray));
-        }
-
-        // Pin the byte array in memory to prevent the garbage collector from moving it
-        GCHandle handle = GCHandle.Alloc(byteArray, GCHandleType.Pinned);
-
-        try {
-            // Create an IntPtr from the pinned byte array
-            return handle.AddrOfPinnedObject();
-        } finally {
-            // Release the GCHandle when you're done with the IntPtr
-            handle.Free();
-        }
-    }
-
-    public void ReleaseNativeMemory(IntPtr memoryPtr) {
-        // Check if the memory pointer is valid (not null or IntPtr.Zero)
-        if (memoryPtr != IntPtr.Zero) {
-            // Free the native memory using Marshal.FreeHGlobal
-            Marshal.FreeHGlobal(memoryPtr);
-        }
-    }
-
-    public static byte[] ToByteArray(IntPtr ptr, ulong size) {
-        int byteCount = (int)size; // Cast ulong to int for byte count
-        byte[] byteArray = new byte[byteCount];
-
-        // Copy data from IntPtr to byte array
-        Marshal.Copy(ptr, byteArray, 0, byteCount);
-
-        return byteArray;
-    }
+    
 
     public static void PopulatePositionBufferLocal(IntPtr lzfseDecodedDepthBytesPtr,
                                           int loadedRGBWidth, int loadedRGBHeight,
@@ -617,64 +495,7 @@ public class Record3DVideo
                 poseBuffer[posBuffIdx + 3] = idx;
             }
         });
-    }
-
-
-    void PopulatePositionBufferLocalOld(IntPtr lzfseDecodedDepthData, int loadedRGBWidth, int loadedRGBHeight,
-    uint lzfseBytesSize, float[] poseBuffer, int width, int height, float fx, float fy, float tx, float ty) {
-        int depthWidth = loadedRGBWidth;
-        int depthHeight = loadedRGBHeight;
-
-        // If the RGB image's resolution is different than the depth map resolution, adjust depthWidth and depthHeight
-        if (loadedRGBWidth != depthWidth || loadedRGBHeight != depthHeight) {
-            depthWidth = 192;
-            depthHeight = 256;
-        }
-
-        float ifx = 1.0f / fx;
-        float ify = 1.0f / fy;
-        float itx = -tx / fx;
-        float ity = -ty / fy;
-
-        float invRGBWidth = 1.0f / loadedRGBWidth;
-        float invRGBHeight = 1.0f / loadedRGBHeight;
-
-        int numComponentsPerPointPosition = 4;
-
-        bool needToInterpolate = loadedRGBWidth != depthWidth || loadedRGBHeight != depthHeight;
-
-        int floatCount = (int)(lzfseBytesSize / sizeof(float));
-        float[] depthDataArray = new float[floatCount];
-
-        // Copy data from IntPtr to float array
-        Marshal.Copy(lzfseDecodedDepthData, depthDataArray, 0, floatCount);
-
-        Parallel.For(0, height, i =>
-        {
-            for (int j = 0; j < width; j++) {
-                int idx = loadedRGBWidth * i + j;
-                int posBuffIdx = numComponentsPerPointPosition * idx;
-                float depthX = invRGBWidth * depthWidth * j;
-                float depthY = invRGBHeight * depthHeight * i;
-
-                // Check if idx is within the valid range
-                if (idx >= 0 && idx < floatCount) {
-                    float currDepth = needToInterpolate
-                        ? InterpolateDepth(depthDataArray, depthX, depthY, depthWidth, depthHeight)
-                        : depthDataArray[idx];
-
-                    poseBuffer[posBuffIdx + 0] = (ifx * j + itx) * currDepth;
-                    poseBuffer[posBuffIdx + 1] = -(ify * i + ity) * currDepth;
-                    poseBuffer[posBuffIdx + 2] = -currDepth;
-                    poseBuffer[posBuffIdx + 3] = idx;
-                } else {
-                    // Handle the case when idx is out of bounds
-                    // You can log a message or take appropriate action here
-                }
-            }
-        });
-    }
-
+    }    
 
 
     // Converted InterpolateDepth function
@@ -785,7 +606,7 @@ public class Record3DVideo
                 lzfseDepthBuffer = memoryStream.GetBuffer();
                 int numFloats = lzfseDepthBuffer.Length; // / sizeof(float);
                 if (positionsBuffer == null) positionsBuffer = new float[numFloats];
-                float[] p = ConvertByteArrayToFloatArray(lzfseDepthBuffer);
+                float[] p = VVP_Utilities.ConvertByteArrayToFloatArray(lzfseDepthBuffer);
                 System.Buffer.BlockCopy(p, 0, positionsBuffer, 0, p.Length);
                 //Debug.Log($"Record3DVideo::Size of depth buffer {lzfseDepthBuffer.Length}");
             }
@@ -803,61 +624,7 @@ public class Record3DVideo
         }
 
         return;
-    }
-
-    private float[] ConvertByteArrayToFloatArray(byte[] byteArray) {
-        if (byteArray.Length % sizeof(float) != 0) {
-            Debug.LogError("Byte array length is not a multiple of float size.");
-            return null;
-        }
-
-        float[] floatArray = new float[byteArray.Length / sizeof(float)];
-
-        Buffer.BlockCopy(byteArray, 0, floatArray, 0, byteArray.Length);
-
-        return floatArray;
-    }
-
-    public float InterpolateDepthOld(float[] depthData, float x, float y, int imgWidth, int imgHeight) {
-        int wX = (int)x;
-        int wY = (int)y;
-        float fracX = x - (float)wX;
-        float fracY = y - (float)wY;
-
-        int topLeftIdx = wY * imgWidth + wX;
-        int topRightIdx = wY * imgWidth + Math.Min(wX + 1, imgWidth - 1);
-        int bottomLeftIdx = Math.Min(wY + 1, imgHeight - 1) * imgWidth + wX;
-        int bottomRightIdx = Math.Min(wY + 1, imgHeight - 1) * imgWidth + Math.Min(wX + 1, imgWidth - 1);
-
-        float interpVal =
-            (depthData[topLeftIdx] * (1.0f - fracX) + fracX * depthData[topRightIdx]) * (1.0f - fracY) +
-            (depthData[bottomLeftIdx] * (1.0f - fracX) + fracX * depthData[bottomRightIdx]) * fracY;
-
-        return interpVal;
-    }
-
-    public float InterpolateDepth(byte[] depthDataBytes, float x, float y, int imgWidth, int imgHeight) {
-        // Convert the byte array to a float array for interpolation
-        float[] depthData = new float[depthDataBytes.Length / sizeof(float)];
-        Buffer.BlockCopy(depthDataBytes, 0, depthData, 0, depthDataBytes.Length);
-
-        int wX = (int)x;
-        int wY = (int)y;
-        float fracX = x - (float)wX;
-        float fracY = y - (float)wY;
-
-        int topLeftIdx = wY * imgWidth + wX;
-        int topRightIdx = wY * imgWidth + Math.Min(wX + 1, imgWidth - 1);
-        int bottomLeftIdx = Math.Min(wY + 1, imgHeight - 1) * imgWidth + wX;
-        int bottomRightIdx = Math.Min(wY + 1, imgHeight - 1) * imgWidth + Math.Min(wX + 1, imgWidth - 1);
-
-        float interpVal =
-            (depthData[topLeftIdx] * (1.0f - fracX) + fracX * depthData[topRightIdx]) * (1.0f - fracY) +
-            (depthData[bottomLeftIdx] * (1.0f - fracX) + fracX * depthData[bottomRightIdx]) * fracY;
-
-        return interpVal;
-    }
-
+    }    
 
 
 }

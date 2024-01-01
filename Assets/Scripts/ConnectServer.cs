@@ -10,7 +10,8 @@ public class ConnectServer : MonoBehaviour
     private void OnTriggerEnter(Collider other) {
         if (other.CompareTag("Player") || other.CompareTag("MainCamera")) {
             gameObject.GetComponent<Renderer>().material = changed;
-            ReceiveZipFileFromServer.ConnectedToServer();
+            //ReceiveZipFileFromServer.ConnectedToServer();
+            ReceiveZipFileFromServer.StartServerThread();
         }
     }
 

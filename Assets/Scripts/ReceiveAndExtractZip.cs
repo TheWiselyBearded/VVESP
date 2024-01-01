@@ -77,14 +77,17 @@ public class ReceiveAndExtractZip : MonoBehaviour
         }
     }
 
-    private void StartServerThread()
+    /// <summary>
+    /// invoked via collision/button press
+    /// </summary>
+    public void StartServerThread()
     {
         serverThread = new Thread(ConnectedToServer);
         serverThread.IsBackground = true;
-        
+        serverThread.Start();
     }
 
-    private void StopServerThread()
+    public void StopServerThread()
     {
 
         if (serverThread != null && serverThread.IsAlive)
@@ -100,8 +103,7 @@ public class ReceiveAndExtractZip : MonoBehaviour
         {
             if (!isServerConnected)
             {
-                StartServerThread();
-                serverThread.Start();
+                StartServerThread();                
             }
         }
     }
