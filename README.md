@@ -1,4 +1,28 @@
-# Unity VFX Graph Record3D offline demo — replaying pre-recorded 3D Videos
+# VVESP (Volumetric Video Editing, Streaming, and Playback)
+Composed of a 3D video editor, and a simple streaming/playback system, my hope is to 1) provide developers with a simple framework to create 3D movies using consumer devices (i.e., iPhone, Quest), and 2) use it to make my own 3D movies. 
+
+**The goal is to provide a seamless experience in manipulating 3D videos, adding effects, and merging them with virtual environments.**
+
+## Roadmap
+- [ ] Building our file-system explorer to load different datasets
+- [ ] Integrating LiteNetLib for simple server/client connectivity
+- [ ] Integrating WebRTC for more robust p2p streaming
+- [ ] Building out server-side application, leveraging AI for style transfer and segmentation
+- [ ] Playback Hand Gestures + virtual controller
+- [ ] Building out streaming-client for livestream
+- [ ] Utilizing telemetry data to move vfx projection exactly as captured
+- [ ] Support multiple streams
+- [ ] Stream configuration files (includes quality details, data representation types)
+
+### Technical Details
+
+Under the hood, the system is built with various Unity frameworks and SDKs like Barracuda, URP, VFX Graph, Quest Integration, and ARKit. Key influences include work by Keijiro Takahashi and Marek Simonik, my work stems from their work. I’ve ported existing libraries to the Quest platform and written custom C++ libraries — loaded as linked libraries — to enhance performance for various tasks. The editor features multi-track support with customizable VFX graphs for various data types like voxels and point clouds. It offers flexible control over visual (# of particles, size of particles) and temporal properties (how frequently frames are updated). Further, developers can programmatically specify quality configurations for different elements (e.g., high for faces, medium for bodies, and low for environments). Users benefit from features like body segmentation and the ability to merge 3D videos with advanced cropping tools. The system also incorporates community-contributed style transfer models and VFX graph effects.
+
+This project is built on top of [Record 3D Repository](https://github.com/marek-simonik/record3d_offline_unity_demo). The rest of this readme includes readme from the linked repository.
+
+
+
+## Archived READMe
 
 **2021/07/28 Update**: LiDAR videos recorded with the "Higher quality LiDAR recording" option are now supported! **Download the new `librecord3d_unity_playback.dylib` and/or `record3d_unity_playback.dll` file** (read below).
 
