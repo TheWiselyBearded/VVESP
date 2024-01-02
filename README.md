@@ -3,6 +3,8 @@ Composed of a 3D video editor, and a simple streaming/playback system, my hope i
 
 **The goal is to provide a seamless experience in manipulating 3D videos, adding effects, and merging them with virtual environments.**
 
+For demonstration of current status, please see [here](https://www.linkedin.com/posts/alirezabahremand_augmentedreality-virtualreality-quest3-activity-7135665169048760321-IaIj?utm_source=share&utm_medium=member_desktop)
+
 ## Roadmap
 - [ ] Building our file-system explorer to load different datasets
 - [ ] Simplified way to connect to servers on different networks
