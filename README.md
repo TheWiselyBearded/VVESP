@@ -5,6 +5,7 @@ Composed of a 3D video editor, and a simple streaming/playback system, my hope i
 
 ## Roadmap
 - [ ] Building our file-system explorer to load different datasets
+- [ ] Simplified way to connect to servers on different networks
 - [ ] Integrating LiteNetLib for simple server/client connectivity
 - [ ] Integrating WebRTC for more robust p2p streaming
 - [ ] Building out server-side application, leveraging AI for style transfer and segmentation
