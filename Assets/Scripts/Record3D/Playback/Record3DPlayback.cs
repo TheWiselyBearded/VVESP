@@ -225,6 +225,29 @@ public partial class Record3DPlayback
         //lastLoadedVideoPath_ = p;
     }
 
+    public void LoadVid(ZipArchive za, Capture capture)
+    {
+        if (currentVideo_ != null)
+        {
+            Pause();
+            currentVideo_ = null;
+        }
+        currentVideo_ = new Record3DVideo(za, capture);
+        zipArchive = za;
+        ReinitializeTextures(currentVideo_.width, currentVideo_.height);
+
+        // Reset the playback and load timer
+        currentFrame_ = 0;
+        videoFrameUpdateTimer_ = new System.Timers.Timer(1000.0 / currentVideo_.fps);
+        videoFrameUpdateTimer_.AutoReset = true;
+        videoFrameUpdateTimer_.Elapsed += this.OnTimerTick;
+
+        currentVideo_.colorChoice = colorPaths[0];
+        //Record3DVideo.OnLoadDepth += OnLoadDepthEvent;
+        //Record3DVideo.OnLoadColor += OnLoadColorEvent;
+        //lastLoadedVideoPath_ = p;
+    }
+
     public void Pause()
     {
         isPlaying_ = false;

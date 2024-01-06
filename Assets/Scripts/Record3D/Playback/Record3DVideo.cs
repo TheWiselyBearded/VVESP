@@ -131,6 +131,7 @@ public class Record3DVideo
     protected int loadedRGBHeight = 1920;
     private long st, et;
 
+    private string captureTitle;
 
     /// <summary>
     /// invoked externally if zip archive downloaded from server
@@ -170,6 +171,41 @@ public class Record3DVideo
         rgbBufferBG = new byte[width * height * 3];
         positionsBuffer = new float[width * height * 4];
         //string p = "jar:file://" + Application.dataPath + "!/assets/momcouch.r3d";        
+    }
+
+    public Record3DVideo(ZipArchive z, Capture capture)
+    {
+        underlyingZip_ = z;
+        InitComponents();    // INIT MAIN COMPONENTS
+
+        captureTitle = capture.filename.Replace(".zip", "");
+        Debug.Log($"Capture title loaded {captureTitle}");
+        // Load metadata (FPS, the intrinsic matrix, dimensions)
+        using (var metadataStream = new StreamReader(underlyingZip_.GetEntry($"{captureTitle}/metadata").Open()))
+        {
+            string jsonContents = metadataStream.ReadToEnd();
+            Record3DMetadata parsedMetadata = (Record3DVideo.Record3DMetadata)JsonUtility.FromJson(jsonContents, typeof(Record3DMetadata));
+
+            // Initialize properties
+            this.fps_ = parsedMetadata.fps;
+            this.width_ = parsedMetadata.w;
+            this.height_ = parsedMetadata.h;
+
+            // Init the intrinsic matrix coeffs
+            this.fx_ = parsedMetadata.K[0];
+            this.fy_ = parsedMetadata.K[4];
+            this.tx_ = parsedMetadata.K[6];
+            this.ty_ = parsedMetadata.K[7];
+
+            DataLayer.SetCameraMetadata(parsedMetadata);
+        }
+
+        this.numFrames_ = underlyingZip_.Entries.Count(x => x.FullName.Contains(".depth"));
+        if (this.numFrames == 0) this.numFrames_ = (underlyingZip_.Entries.Count(x => x.FullName.Contains(".bytes")));
+        Debug.Log($"Total number of frames detected {this. numFrames}");
+        rgbBuffer = new byte[width * height * 3];
+        rgbBufferBG = new byte[width * height * 3];
+        positionsBuffer = new float[width * height * 4];        
     }
 
     /// <summary>
@@ -223,7 +259,7 @@ public class Record3DVideo
             return;
         }
 
-        using (var lzfseDepthStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/{0}.depth", frameIdx)).Open())
+        using (var lzfseDepthStream = underlyingZip_.GetEntry(String.Format($"{captureTitle}/rgbd/{frameIdx}.depth")).Open())
         {
             using (var memoryStream = new MemoryStream())
             {
@@ -235,7 +271,7 @@ public class Record3DVideo
 
 
         //using (var jpgStream = underlyingZip_.GetEntry(String.Format(colorChoice, frameIdx)).Open()) {
-        using (var jpgStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/{0}.jpg", frameIdx)).Open())
+        using (var jpgStream = underlyingZip_.GetEntry(String.Format($"{captureTitle}/rgbd/{frameIdx}.jpg")).Open())
         {
             using (var memoryStream = new MemoryStream())
             {
@@ -254,7 +290,7 @@ public class Record3DVideo
             return;
         }
 
-        using (var lzfseDepthStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/{0}.depth", frameIdx)).Open()) {                      
+        using (var lzfseDepthStream = underlyingZip_.GetEntry(String.Format($"{captureTitle}/rgbd/{0}.depth", frameIdx)).Open()) {                      
             using (var memoryStream = new MemoryStream()) {
                 lzfseDepthStream.CopyTo(memoryStream);
                 //lzfseDepthBuffer = memoryStream.ToArray();
@@ -264,7 +300,7 @@ public class Record3DVideo
 
 
         //using (var jpgStream = underlyingZip_.GetEntry(String.Format(colorChoice, frameIdx)).Open()) {
-        using (var jpgStream = underlyingZip_.GetEntry(String.Format("capture/rgbd/{0}.jpg", frameIdx)).Open()) { 
+        using (var jpgStream = underlyingZip_.GetEntry(String.Format($"{captureTitle}/rgbd/{0}.jpg", frameIdx)).Open()) { 
             using (var memoryStream = new MemoryStream()) {
                 jpgStream.CopyTo(memoryStream);
                 jpgBuffer = memoryStream.GetBuffer();                                
@@ -336,7 +372,7 @@ public class Record3DVideo
         // Create a TransformBlock to read depth data into memory
         var loadDepthBlock = new TransformBlock<int, byte[]>(async idx =>
         {
-            using (var lzfseDepthStream = underlyingZip_.GetEntry($"capture/rgbd/{idx}.depth").Open())
+            using (var lzfseDepthStream = underlyingZip_.GetEntry($"{captureTitle}/rgbd/{idx}.depth").Open())
             {
                 using (var memoryStream = new MemoryStream())
                 {
@@ -401,7 +437,7 @@ public class Record3DVideo
 
         });
         var loadColorBGBlock = new TransformBlock<int, byte[]>(async idx => {
-            using (var jpgStream = underlyingZip_.GetEntry($"capture/rgbd/bg/bgColor{idx}.jpg").Open()) {
+            using (var jpgStream = underlyingZip_.GetEntry($"{captureTitle}/rgbd/bg/bgColor{idx}.jpg").Open()) {
                 using (var memoryStream = new MemoryStream()) {
                     await jpgStream.CopyToAsync(memoryStream);
                     return memoryStream.GetBuffer();
