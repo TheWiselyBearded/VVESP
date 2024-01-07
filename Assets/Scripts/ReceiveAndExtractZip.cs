@@ -36,6 +36,7 @@ public class ReceiveAndExtractZip : MonoBehaviour
     public string filenameToRequest;
     private Capture selectCapture;
 
+    public VVESP_UI_Controller controllerOVR;
 
     private enum ServerResponseExpectation
     {
@@ -265,6 +266,12 @@ public class ReceiveAndExtractZip : MonoBehaviour
                     Debug.Log($"Found file: {capture.filename}");
                     captures.Add(capture);
                 }
+
+                dispatcher.Enqueue(() => {
+                    if (controllerOVR != null) {
+                        controllerOVR.InitializeCaptureButtons(captureList.captures);
+                    }
+                });                
             }
         }
         catch (Exception e)

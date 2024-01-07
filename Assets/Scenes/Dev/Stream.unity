@@ -334,7 +334,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 949dfb4eccd1c0c4abd39e2763571069, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  serverAddress: 127.0.0.1
+  serverAddress: 192.168.0.233
   serverPort: 12345
   playback: {fileID: 162972267}
   videoController: {fileID: 162972263}

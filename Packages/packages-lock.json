@@ -8,15 +8,15 @@
       "hash": "99c6458a5b4c09014e19df90e863744658cd51d7"
     },
     "com.meta.xr.sdk.core": {
-      "version": "59.0.0",
-      "depth": 1,
+      "version": "60.0.0",
+      "depth": 2,
       "source": "registry",
       "dependencies": {},
       "url": "https://packages.unity.com"
     },
     "com.meta.xr.sdk.interaction": {
-      "version": "59.0.0",
-      "depth": 1,
+      "version": "60.0.0",
+      "depth": 2,
       "source": "registry",
       "dependencies": {
         "com.unity.textmeshpro": "3.0.6",
@@ -25,27 +25,27 @@
       "url": "https://packages.unity.com"
     },
     "com.meta.xr.sdk.interaction.ovr": {
-      "version": "59.0.0",
-      "depth": 0,
+      "version": "60.0.0",
+      "depth": 1,
       "source": "registry",
       "dependencies": {
-        "com.meta.xr.sdk.core": "59.0.0",
-        "com.meta.xr.sdk.interaction": "59.0.0"
+        "com.meta.xr.sdk.core": "60.0.0",
+        "com.meta.xr.sdk.interaction": "60.0.0"
       },
       "url": "https://packages.unity.com"
     },
     "com.meta.xr.sdk.interaction.ovr.samples": {
-      "version": "59.0.0",
+      "version": "60.0.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.meta.xr.sdk.interaction.ovr": "59.0.0",
-        "com.meta.xr.sdk.sharedassets": "59.0.0"
+        "com.meta.xr.sdk.interaction.ovr": "60.0.0",
+        "com.meta.xr.sdk.sharedassets": "60.0.0"
       },
       "url": "https://packages.unity.com"
     },
     "com.meta.xr.sdk.sharedassets": {
-      "version": "59.0.0",
+      "version": "60.0.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -64,7 +64,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.burst": {
-      "version": "1.8.9",
+      "version": "1.8.11",
       "depth": 1,
       "source": "registry",
       "dependencies": {
@@ -87,7 +87,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.ide.rider": {
-      "version": "3.0.26",
+      "version": "3.0.27",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -119,7 +119,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.mobile.android-logcat": {
-      "version": "1.3.2",
+      "version": "1.4.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {},
@@ -176,7 +176,16 @@
         "com.unity.mathematics": "1.2.1",
         "com.unity.burst": "1.8.9",
         "com.unity.render-pipelines.core": "14.0.9",
-        "com.unity.shadergraph": "14.0.9"
+        "com.unity.shadergraph": "14.0.9",
+        "com.unity.render-pipelines.universal-config": "14.0.9"
+      }
+    },
+    "com.unity.render-pipelines.universal-config": {
+      "version": "14.0.9",
+      "depth": 1,
+      "source": "builtin",
+      "dependencies": {
+        "com.unity.render-pipelines.core": "14.0.9"
       }
     },
     "com.unity.searcher": {
@@ -268,7 +277,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.xr.oculus": {
-      "version": "4.1.1",
+      "version": "4.1.2",
       "depth": 0,
       "source": "registry",
       "dependencies": {
