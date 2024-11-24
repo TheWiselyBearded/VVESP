@@ -10,353 +10,368 @@ using Newtonsoft.Json;
 using System.Text;
 using System.Linq;
 
-public class ReceiveAndExtractZip : MonoBehaviour
-{
-    public string serverAddress = "127.0.0.1"; // Replace with your server address
-    public int serverPort = 12345;            // Replace with your server port
+/// <summary>
+/// Handles network communication with a server to receive and process RGBD video data in ZIP format.
+/// This component manages TCP connections, command sending, and data reception for volumetric video playback.
+/// </summary>
+public class ReceiveAndExtractZip : MonoBehaviour {
+    #region Configuration
+    [Header("Network Settings")]
+    [Tooltip("Enable for local development testing")]
+    public bool localDebug = false;
+
+    [Tooltip("Server IP address for connection")]
+    public string serverAddress = "127.0.0.1";
+
+    [Tooltip("Server port number")]
+    public int serverPort = 12345;
+    #endregion
+
+    #region Component References
+    [Header("Required Components")]
     public Record3DPlayback playback;
     public VideoController videoController;
+    public VVESP_UI_Controller controllerOVR;
+    public UnityMainThreadDispatcher dispatcher;
+    #endregion
+
+    #region Private Fields
+    // Network-related fields
+    private TcpClient client;
+    private NetworkStream stream;
+    private readonly MemoryStream memoryStream = new MemoryStream();
     private ZipArchive zipArchive;
     private Thread serverThread;
+    private bool isServerConnected;
 
-    private bool isServerConnected = false;
-    public TcpClient client;
-    public NetworkStream stream;
-    public MemoryStream memoryStream;
+    // Thread-safe collections for command and data management
+    private readonly ConcurrentQueue<int> commandQueue = new ConcurrentQueue<int>();
+    private readonly ConcurrentQueue<string> fileRequestQueue = new ConcurrentQueue<string>();
+    private readonly ConcurrentBag<Capture> captures = new ConcurrentBag<Capture>();
 
-    public UnityMainThreadDispatcher dispatcher;
-
-    private ConcurrentQueue<int> commandQueue = new ConcurrentQueue<int>();
-    private ConcurrentQueue<string> fileRequestQueue = new ConcurrentQueue<string>();
-
-    // Thread-safe collection to store captures
-    private ConcurrentBag<Capture> captures = new ConcurrentBag<Capture>();
-
-    // Public variable to specify which capture to load
-    public string filenameToRequest;
+    // File handling
+    public string filenameToRequest; // TODO: Consider making this private with a public property
     private Capture selectCapture;
+    #endregion
 
-    public VVESP_UI_Controller controllerOVR;
-
-    private enum ServerResponseExpectation
-    {
+    #region Server Response Types
+    private enum ServerResponseExpectation {
         None,
         JsonList,
         ZipFile
     }
-
     private ServerResponseExpectation expectedResponse = ServerResponseExpectation.None;
+    #endregion
 
-    private void Awake()
-    {
+    #region Unity Lifecycle Methods
+    private void Awake() {
+        InitializeComponents();
+        InitializeNetworkConnection();
+    }
+
+    private void Update() {
+        HandleDebugInputs();
+    }
+
+    private void OnDestroy() {
+        CleanupResources();
+    }
+    #endregion
+
+    #region Initialization Methods
+    /// <summary>
+    /// Initializes required components and validates dependencies
+    /// </summary>
+    private void InitializeComponents() {
+        if (localDebug) serverAddress = "127.0.0.1";
         if (dispatcher == null) dispatcher = FindObjectOfType<UnityMainThreadDispatcher>();
-        client = new TcpClient(serverAddress, serverPort);
-        stream = client.GetStream();
-        memoryStream = new MemoryStream();
-        //commandQueue = new ConcurrentQueue<int>();
-        //fileRequestQueue = new ConcurrentQueue<string>();
     }
-
-
-
-    public void ConnectedToServer()
-    {
-        try
-        {
-            client = new TcpClient(serverAddress, serverPort);
-            stream = client.GetStream();
-            memoryStream = new MemoryStream();
-
-            byte[] buffer = new byte[4096];
-            int bytesRead;
-
-            while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0)
-            {
-                memoryStream.Write(buffer, 0, bytesRead);
-            }
-
-            // Reset the memory stream position to the beginning
-            memoryStream.Seek(0, SeekOrigin.Begin);
-
-            // Create a ZipArchive from the received data in memory
-            zipArchive = new ZipArchive(memoryStream);
-
-            //playback.LoadVid(zipArchive);
-            //videoController.SetReadyState();
-            // Enqueue actions onto the main thread for Unity-specific operations
-            dispatcher.Enqueue(() =>
-            {
-                playback.LoadVid(zipArchive);
-                videoController.SetReadyState();
-            });
-
-
-
-            isServerConnected = true;
-        }
-        catch (Exception e)
-        {
-            Debug.LogError("Error: " + e.Message);
-            isServerConnected = false;
-        }
-    }
-
 
     /// <summary>
-    /// invoked via collision/button press
+    /// Establishes initial network connection and prepares streams
     /// </summary>
-    public void StartServerThread()
-    {
-        //serverThread = new Thread(ConnectedToServer);
-        serverThread = new Thread(ServerThreadMain);
-        serverThread.IsBackground = true;
+    private void InitializeNetworkConnection() {
+        try {
+            client = new TcpClient(serverAddress, serverPort);
+            stream = client.GetStream();
+        } catch (Exception e) {
+            Debug.LogError($"Failed to initialize network connection: {e.Message}");
+        }
+    }
+    #endregion
+
+    #region Server Communication
+    /// <summary>
+    /// Main server communication loop that handles sending commands and receiving responses
+    /// </summary>
+    private void ServerThreadMain() {
+        try {
+            while (client.Connected) {
+                ProcessCommandQueue();
+                HandleServerResponse();
+            }
+        } catch (Exception e) {
+            Debug.LogError($"Server thread error: {e.Message}");
+        } finally {
+            CloseConnection();
+        }
+    }
+
+    /// <summary>
+    /// Processes pending commands in the command queue
+    /// </summary>
+    private void ProcessCommandQueue() {
+        if (commandQueue.TryDequeue(out int command)) {
+            if (command == 2 && !string.IsNullOrEmpty(filenameToRequest)) {
+                SendFileRequest(filenameToRequest);
+                filenameToRequest = null;
+            } else {
+                SendCommand(command);
+            }
+            expectedResponse = DetermineResponseExpectation(command);
+        }
+    }
+
+    /// <summary>
+    /// Handles incoming server responses based on the expected response type
+    /// </summary>
+    private void HandleServerResponse() {
+        if (expectedResponse != ServerResponseExpectation.None && stream.DataAvailable) {
+            ReceiveServerResponse();
+        }
+    }
+
+    /// <summary>
+    /// Processes server responses based on the expected type (ZIP file or JSON list)
+    /// </summary>
+    private void ReceiveServerResponse() {
+        try {
+            switch (expectedResponse) {
+                case ServerResponseExpectation.ZipFile:
+                    ReceiveZipFile();
+                    break;
+                case ServerResponseExpectation.JsonList:
+                    ReceiveJsonList();
+                    break;
+            }
+        } catch (Exception e) {
+            Debug.LogError($"Error receiving server response: {e.Message}");
+        } finally {
+            expectedResponse = ServerResponseExpectation.None;
+            memoryStream.SetLength(0);
+        }
+    }
+    #endregion
+
+    #region Data Reception Methods
+    /// <summary>
+    /// Receives and processes a ZIP file containing RGBD data
+    /// </summary>
+    private void ReceiveZipFile() {
+        byte[] fileSizeBytes = new byte[4];
+        stream.Read(fileSizeBytes, 0, 4);
+        int fileSize = BitConverter.ToInt32(fileSizeBytes, 0);
+
+        ReceiveFileData(fileSize);
+        ProcessReceivedZipFile();
+    }
+
+    /// <summary>
+    /// Receives file data in chunks and writes to memory stream
+    /// </summary>
+    private void ReceiveFileData(int fileSize) {
+        byte[] buffer = new byte[4096];
+        int totalBytesReceived = 0;
+        memoryStream.SetLength(0);
+
+        while (totalBytesReceived < fileSize) {
+            int bytesRead = stream.Read(buffer, 0, buffer.Length);
+            if (bytesRead == 0) throw new Exception("Connection closed while receiving data");
+
+            memoryStream.Write(buffer, 0, bytesRead);
+            totalBytesReceived += bytesRead;
+        }
+    }
+
+    /// <summary>
+    /// Processes the received ZIP file data and updates the playback components
+    /// </summary>
+    private void ProcessReceivedZipFile() {
+        var zipMemoryStream = new MemoryStream(memoryStream.ToArray());
+        var zipArchive = new ZipArchive(zipMemoryStream);
+
+        dispatcher.Enqueue(() => {
+            playback.LoadVid(zipArchive, selectCapture);
+            videoController.SetReadyState();
+        });
+    }
+
+    /// <summary>
+    /// Receives and processes the JSON list of available captures
+    /// </summary>
+    private void ReceiveJsonList() {
+        byte[] buffer = new byte[4096];
+        while (stream.DataAvailable) {
+            int bytesRead = stream.Read(buffer, 0, buffer.Length);
+            memoryStream.Write(buffer, 0, bytesRead);
+        }
+
+        string json = Encoding.UTF8.GetString(memoryStream.ToArray());
+        CaptureList captureList = JsonConvert.DeserializeObject<CaptureList>(json);
+
+        ProcessCaptureList(captureList);
+    }
+
+    /// <summary>
+    /// Processes the received capture list and updates the UI
+    /// </summary>
+    private void ProcessCaptureList(CaptureList captureList) {
+        foreach (var capture in captureList.captures) {
+            Debug.Log($"Found file: {capture.filename}");
+            captures.Add(capture);
+        }
+
+        dispatcher.Enqueue(() => {
+            if (controllerOVR != null) {
+                controllerOVR.InitializeCaptureButtons(captureList.captures);
+            }
+        });
+    }
+    #endregion
+
+    #region Public Interface Methods
+    /// <summary>
+    /// Initiates the server connection thread
+    /// </summary>
+    public void StartServerThread() {
+        serverThread = new Thread(ServerThreadMain) {
+            IsBackground = true
+        };
         serverThread.Start();
     }
 
-    public void StopServerThread()
-    {
-
-        if (serverThread != null && serverThread.IsAlive)
-        {
+    /// <summary>
+    /// Stops the server connection thread
+    /// </summary>
+    public void StopServerThread() {
+        if (serverThread?.IsAlive == true) {
             serverThread.Abort();
             serverThread = null;
         }
     }
 
-    private void Update()
-    {
-        if (Input.GetKeyDown(KeyCode.Space))
-        {
-            if (!isServerConnected)
-            {
-                StartServerThread();                
-            }
-        }
-
-        if (Input.GetKeyDown(KeyCode.LeftArrow))
-        {
-            SendCloseConnectionRequest();
-        }
-        if (Input.GetKeyDown(KeyCode.RightArrow))
-        {
-            SendLoadRequest();
-        }
-        if (Input.GetKeyDown(KeyCode.Tab))
-        {
-            Debug.Log("Sending file name load req");
-            LoadFileRequest(filenameToRequest);
-        }
-    }
-
-    private void ServerThreadMain()
-    {
-        try
-        {
-            while (client.Connected)
-            {
-                if (commandQueue.TryDequeue(out int command))
-                {
-                    // If the command is 2, also send the associated filename
-                    if (command == 2 && !string.IsNullOrEmpty(filenameToRequest))
-                    {
-                        SendFileRequest(filenameToRequest);
-                        filenameToRequest = null; // Reset after sending
-                    } else
-                    {
-                        SendCommand(command);
-                    }
-                    expectedResponse = DetermineResponseExpectation(command);
-                }
-
-                if (expectedResponse != ServerResponseExpectation.None && stream.DataAvailable)
-                {
-                    ReceiveServerResponse();
-                }
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"Error in server thread: {e.Message}");
-        }
-        finally
-        {
-            CloseConnection();
-        }
-    }
-
-    private ServerResponseExpectation DetermineResponseExpectation(int command)
-    {
-        // Define the expected response based on the command sent
-        switch (command)
-        {
-            case 2:
-                return ServerResponseExpectation.ZipFile;
-            case 1: // Load Request
-                return ServerResponseExpectation.JsonList;
-            case -1: // Close Connection
-                return ServerResponseExpectation.None;
-            default:
-                return ServerResponseExpectation.None;
-        }
-    }
-
-    private void ReceiveServerResponse()
-    {
-        byte[] buffer = new byte[4096];
-        int bytesRead;
-
-        try
-        {
-            if (expectedResponse == ServerResponseExpectation.ZipFile)
-            {
-                Debug.Log("Receiving zip file");
-
-                // First, receive the 4-byte integer representing the file size
-                byte[] fileSizeBytes = new byte[4];
-                int bytesReceived = stream.Read(fileSizeBytes, 0, 4);
-                if (bytesReceived != 4)
-                {
-                    throw new Exception("Failed to receive the full file size data.");
-                }
-                int fileSize = BitConverter.ToInt32(fileSizeBytes, 0);
-
-                // Receive the file data
-                int totalBytesReceived = 0;
-                memoryStream.SetLength(0); // Ensure the memory stream is empty
-                while (totalBytesReceived < fileSize)
-                {
-                    bytesRead = stream.Read(buffer, 0, buffer.Length);
-                    if (bytesRead == 0)
-                    {
-                        throw new Exception("Received 0 bytes from stream. Connection may have been closed.");
-                    }
-                    memoryStream.Write(buffer, 0, bytesRead);
-                    totalBytesReceived += bytesRead;
-                }
-
-                // Create a new MemoryStream as a copy of the existing memoryStream
-                var zipMemoryStream = new MemoryStream(memoryStream.ToArray());
-
-                // Create a ZipArchive from the copied MemoryStream
-                var zipArchive = new ZipArchive(zipMemoryStream);
-
-                dispatcher.Enqueue(() =>
-                {
-                    playback.LoadVid(zipArchive, selectCapture);
-                    videoController.SetReadyState();
-                });
-            }
-            else if (expectedResponse == ServerResponseExpectation.JsonList)
-            {
-                Debug.Log("Receiving JSON list");
-
-                // Receive JSON data using the original approach
-                while (stream.DataAvailable && (bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0)
-                {
-                    memoryStream.Write(buffer, 0, bytesRead);
-                }
-                memoryStream.Seek(0, SeekOrigin.Begin);
-
-                // Deserialize the JSON data
-                string json = Encoding.UTF8.GetString(memoryStream.ToArray());
-                CaptureList captureList = JsonConvert.DeserializeObject<CaptureList>(json);
-
-                foreach (var capture in captureList.captures)
-                {
-                    Debug.Log($"Found file: {capture.filename}");
-                    captures.Add(capture);
-                }
-
-                dispatcher.Enqueue(() => {
-                    if (controllerOVR != null) {
-                        controllerOVR.InitializeCaptureButtons(captureList.captures);
-                    }
-                });                
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"Error receiving server response: {e.Message}");
-        }
-
-        expectedResponse = ServerResponseExpectation.None;
-        memoryStream.SetLength(0); // Clear the memory stream for next use
-    }
-
-
-    public void SendCloseConnectionRequest()
-    {
+    /// <summary>
+    /// Requests to close the server connection
+    /// </summary>
+    public void SendCloseConnectionRequest() {
         commandQueue.Enqueue(-1);
     }
 
-    public void SendLoadRequest()
-    {
+    /// <summary>
+    /// Sends a request to load the capture list
+    /// </summary>
+    public void SendLoadRequest() {
         Debug.Log("Send load request");
         commandQueue.Enqueue(1);
     }
 
-    private void SendCommand(int command)
-    {
+    /// <summary>
+    /// Initiates a request to load a specific capture file
+    /// </summary>
+    public void LoadFileRequest(string fileName) {
+        selectCapture = captures.FirstOrDefault(capture => capture.filename.Contains(fileName));
+        Debug.Log($"Select capture {selectCapture?.filename}");
+        filenameToRequest = fileName;
+        commandQueue.Enqueue(2);
+    }
+    #endregion
+
+    #region Helper Methods
+    /// <summary>
+    /// Determines the expected response type based on the command
+    /// </summary>
+    private ServerResponseExpectation DetermineResponseExpectation(int command) => command switch {
+        2 => ServerResponseExpectation.ZipFile,
+        1 => ServerResponseExpectation.JsonList,
+        _ => ServerResponseExpectation.None
+    };
+
+    /// <summary>
+    /// Sends a command to the server
+    /// </summary>
+    private void SendCommand(int command) {
         byte[] commandBytes = BitConverter.GetBytes(command);
         stream.Write(commandBytes, 0, commandBytes.Length);
         Debug.Log($"Sent command {command}");
     }
 
-    // Method to initiate a file load request
-    public void LoadFileRequest(string fileName)
-    {
-        selectCapture = captures.FirstOrDefault(capture => capture.filename.Contains(fileName));
-        Debug.Log($"Select capture {selectCapture.filename}");
-        filenameToRequest = fileName; // Set the filename
-        commandQueue.Enqueue(2); // Enqueue command '2' for file load
-    }
-
-    private void SendFileRequest(string fileName)
-    {
-        byte[] _command = BitConverter.GetBytes(2);
+    /// <summary>
+    /// Sends a file request to the server
+    /// </summary>
+    private void SendFileRequest(string fileName) {
+        byte[] commandBytes = BitConverter.GetBytes(2);
         byte[] fileNameBytes = Encoding.UTF8.GetBytes(fileName);
-        byte[] payload = new byte[_command.Length + fileNameBytes.Length];
-        Buffer.BlockCopy(_command, 0, payload, 0, _command.Length);
-        Buffer.BlockCopy(fileNameBytes, 0, payload, _command.Length, fileNameBytes.Length);
+        byte[] payload = new byte[commandBytes.Length + fileNameBytes.Length];
+
+        Buffer.BlockCopy(commandBytes, 0, payload, 0, commandBytes.Length);
+        Buffer.BlockCopy(fileNameBytes, 0, payload, commandBytes.Length, fileNameBytes.Length);
+
         stream.Write(payload, 0, payload.Length);
     }
 
-
-    private void CloseConnection()
-    {
-        if (client != null)
-        {
-            if (client.Connected)
-            {
-                stream.Close();
-                SendCloseConnectionRequest();                
-                //client.Close();
-            }
-            client = null;
+    /// <summary>
+    /// Handles debug input commands
+    /// </summary>
+    private void HandleDebugInputs() {
+        if (Input.GetKeyDown(KeyCode.Space) && !isServerConnected) {
+            StartServerThread();
+        }
+        if (Input.GetKeyDown(KeyCode.LeftArrow)) {
+            SendCloseConnectionRequest();
+        }
+        if (Input.GetKeyDown(KeyCode.RightArrow)) {
+            SendLoadRequest();
+        }
+        if (Input.GetKeyDown(KeyCode.Tab)) {
+            Debug.Log("Sending file name load req");
+            LoadFileRequest(filenameToRequest);
         }
     }
 
-    void OnDestroy()
-    {
-        // Close the ZipArchive when it's no longer needed
-        if (zipArchive != null)
-        {
-            zipArchive.Dispose();
+    /// <summary>
+    /// Closes the network connection and releases resources
+    /// </summary>
+    private void CloseConnection() {
+        if (client?.Connected == true) {
+            stream?.Close();
+            SendCloseConnectionRequest();
         }
+        client = null;
+    }
+
+    /// <summary>
+    /// Cleans up resources when the component is destroyed
+    /// </summary>
+    private void CleanupResources() {
+        zipArchive?.Dispose();
         CloseConnection();
         StopServerThread();
     }
+    #endregion
 }
 
-
+/// <summary>
+/// Represents a single capture file entry
+/// </summary>
 [Serializable]
-public class Capture
-{
+public class Capture {
     public string filename;
 }
 
+/// <summary>
+/// Represents a list of capture files
+/// </summary>
 [Serializable]
-public class CaptureList
-{
+public class CaptureList {
     public Capture[] captures;
 }
