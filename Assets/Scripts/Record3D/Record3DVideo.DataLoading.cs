@@ -1,9 +1,10 @@
 using System.IO;
 using System.IO.Compression;
+using System.Threading.Tasks;
 
 public partial class Record3DVideo
 {
-    /// <summary>
+    /*/// <summary>
     /// Loads depth data for a specific frame from archive.
     /// </summary>
     private void LoadDepthData(int frameIdx)
@@ -29,6 +30,15 @@ public partial class Record3DVideo
             jpgStream.CopyTo(memoryStream);
             jpgBuffer = memoryStream.GetBuffer();
         }
+    }*/
+
+    private async Task LoadDepthData(int frameIdx) {
+        lzfseDepthBuffer = await dataSource.GetDepthBufferAsync(frameIdx);
     }
+
+    private async Task LoadColorData(int frameIdx) {
+        jpgBuffer = await dataSource.GetColorBufferAsync(frameIdx);
+    }
+
 }
 

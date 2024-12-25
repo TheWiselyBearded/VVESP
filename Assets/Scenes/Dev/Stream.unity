@@ -333,17 +333,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 821c5bf3246a44a2bbdb792dae95ea37, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  r3dPath: momcouch.r3d
-  colorPaths:
-  - capture/rgbd/{0}.jpg
-  colorChoice: 
   streamEffects:
   - {fileID: 12242066}
   - {fileID: 854262885}
-  saveToDisk: 0
-  loadData: 1
-  cR: {fileID: 8400000, guid: 8b0b02e281ec89b43b524bd4a37e4689, type: 2}
-  dR: {fileID: 8400000, guid: 2b134652d20da4c4d9a05ffd8f9cb087, type: 2}
   isPlaying_: 0
 --- !u!114 &162972268
 MonoBehaviour:
@@ -364,7 +356,7 @@ MonoBehaviour:
   videoController: {fileID: 162972263}
   controllerOVR: {fileID: 0}
   dispatcher: {fileID: 484017715}
-  filenameToRequest: fam
+  filenameToRequest: capture
 --- !u!1 &392367609
 GameObject:
   m_ObjectHideFlags: 0

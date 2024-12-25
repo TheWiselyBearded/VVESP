@@ -4,6 +4,7 @@ using System.IO.Compression;
 using System.Text;
 using UnityEngine;
 using Newtonsoft.Json;
+using System.Threading.Tasks;
 
 public partial class TcpZipDataClient
 {
@@ -82,24 +83,45 @@ public partial class TcpZipDataClient
     /// <summary>
     /// Processes the received ZIP file data and updates the playback components
     /// </summary>
-    private void ProcessReceivedZipFile()
-    {
+    private void ProcessReceivedZipFile() {
+        // memoryStream is populated with the .zip data previously
         var zipMemoryStream = new MemoryStream(memoryStream.ToArray());
-        var archive = new ZipArchive(zipMemoryStream); // local variable
-        zipArchive = archive; // if you want to store it
+        var archive = new ZipArchive(zipMemoryStream);
 
-        if (dispatcher != null)
-        {
-            dispatcher.Enqueue(() =>
-            {
-                playback.LoadVid(archive, selectCapture);
+        // Because we need to do asynchronous calls on the main thread, 
+        // we can wrap this logic into an async method with a TaskCompletionSource
+        var tcs = new TaskCompletionSource<bool>();
+
+        // Enqueue the async logic on the Unity main thread
+        dispatcher.Enqueue(async () => {
+            try {
+                // 1) Await the actual loading from the .zip:
+                await playback.LoadVideoFromZipAsync(archive, selectCapture?.filename);
+
+                // 2) Once loaded, set the video controller to ready state
                 videoController.SetReadyState();
-            });
-        }
-        else
-        {
-            Debug.LogWarning("No dispatcher found, cannot enqueue UI operations");
-        }
+
+                // 3) Signal success via TCS
+                tcs.SetResult(true);
+            } catch (Exception ex) {
+                tcs.SetException(ex);
+            }
+        });
+
+        // Optionally: If you are *already* inside an async method, you can do:
+        // await tcs.Task;
+        // or if you're in a sync method (like now), you can continue if you 
+        // don't strictly need to block until it's done.
+        // For demonstration, let's do it in a background Task:
+        Task.Run(async () => {
+            try {
+                // Wait for the main-thread loading to complete
+                await tcs.Task;
+                Debug.Log("Zip file loaded successfully (async).");
+            } catch (Exception e) {
+                Debug.LogError($"Error in loading .zip file: {e.Message}");
+            }
+        });
     }
     #endregion
 

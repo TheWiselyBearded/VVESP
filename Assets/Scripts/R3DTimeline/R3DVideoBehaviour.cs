@@ -33,7 +33,7 @@ public class R3DVideoBehaviour : PlayableBehaviour
             if (input == null || input.endLocation == null)
                 continue;
 
-            int frameIdx = (int)Math.Round(playableInput.GetTime() * input.endLocation.fps);
+            int frameIdx = (int)Math.Round(playableInput.GetTime() * input.endLocation.currentVideo_.fps);
             input.endLocation.LoadFrame(frameIdx);
         }
     }

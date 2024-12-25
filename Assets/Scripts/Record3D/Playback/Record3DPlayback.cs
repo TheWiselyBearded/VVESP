@@ -1,122 +1,93 @@
 ﻿using UnityEngine;
 using UnityEngine.VFX;
 using System.IO.Compression;
-using System.Threading;
 using System.Timers;
+using System.Threading.Tasks;
+using System.Threading;
 
 public partial class Record3DPlayback : MonoBehaviour {
-    #region Public Configuration
-    [Header("File Settings")]
-    public string r3dPath;
-
-    [Tooltip("Available color path options")]
-    public string[] colorPaths;
-
-    [Tooltip("Currently selected color choice")]
-    public string colorChoice;
-
     [Header("Rendering")]
     public VisualEffect[] streamEffects;
-    public bool saveToDisk = false;
-    public bool loadData = true;
 
-    [Header("Debug Renders")]
-    public RenderTexture cR;
-    public RenderTexture dR;
-    #endregion
-
-    #region Private Fields
-    private Texture2D positionTex;
-    private Texture2D colorTex;
-    private Texture2D colorTexBG;
-    private int numParticles;
-
+    // Playback state
     private int currentFrame_;
     public bool isPlaying_;
     public Record3DVideo currentVideo_;
     private System.Timers.Timer videoFrameUpdateTimer_;
     private bool shouldRefresh_;
-    private string lastLoadedVideoPath_;
-    private int colorIndex;
 
-    public ZipArchive zipArchive;
-    private Thread consumerThread;
+    protected Thread consumerThread;
 
-    private long st, et;
+    // Texture management
+    private Texture2D positionTex;
+    private Texture2D colorTex;
+    private Texture2D colorTexBG;
+    private int numParticles;
+
+    #region Loading from Zip
+    /// <summary>
+    /// Loads a video from a ZipArchive asynchronously, sets up Record3DVideo, etc.
+    /// </summary>
+    public async Task LoadVideoFromZipAsync(ZipArchive za, string captureTitle = "") {
+        // 1. Create data source
+        var zipSource = new ZipVolumetricVideoSource(za, captureTitle);
+        // 2. Initialize it (reads metadata, sets up internal fields)
+        await zipSource.InitializeSourceAsync();
+
+        // 3. Build Record3DVideo with this data source
+        currentVideo_ = new Record3DVideo(zipSource);
+
+        // 4. Reinitialize textures
+        ReinitializeTextures(currentVideo_.width, currentVideo_.height);
+
+        // 5. Start at frame 0, create a timer at [1000/fps] for playback
+        currentFrame_ = 0;
+        videoFrameUpdateTimer_ = new System.Timers.Timer(1000.0 / currentVideo_.fps) {
+            AutoReset = true
+        };
+        videoFrameUpdateTimer_.Elapsed += OnTimerTick;
+    }
+
+    // If we want a direct local file source
+    public void LoadVideoFromLocalDisk(string path) {
+        Debug.LogError("Not implemented local file storage yet");
+        //var fileSource = new LocalFileVolumetricVideoSource(path); // hypothetical
+        //currentVideo_ = new Record3DVideo(fileSource);
+        //// ...
+    }
     #endregion
 
-    #region Properties
-    public int numberOfFrames => currentVideo_?.numFrames ?? 1;
-    public int fps => currentVideo_?.fps ?? 1;
-    #endregion
+    #region Playback Controls
+    public void Play() {
+        if (currentVideo_ == null) {
+            Debug.LogWarning("No video loaded, cannot play.");
+            return;
+        }
+        isPlaying_ = true;
+        if (videoFrameUpdateTimer_ != null)
+            videoFrameUpdateTimer_.Enabled = true;
+    }
 
-    #region Playback Control Methods
     public void Pause() {
         isPlaying_ = false;
         if (videoFrameUpdateTimer_ != null)
             videoFrameUpdateTimer_.Enabled = false;
     }
 
-    public void Play() {
-        isPlaying_ = true;
-        if (videoFrameUpdateTimer_ != null)
-            videoFrameUpdateTimer_.Enabled = true;
-    }
-
-    public void SequenceColorChoice() {
-        colorIndex = (colorIndex + 1) % colorPaths.Length;
-        if (currentVideo_ != null)
-            currentVideo_.colorChoice = colorPaths[colorIndex];
-    }
-    #endregion
-
-    #region Video Loading Methods
-    public void LoadVid(ZipArchive za, Capture capture) {
-        if (currentVideo_ != null) {
-            Pause();
-            currentVideo_ = null;
-        }
-
-        currentVideo_ = new Record3DVideo(za, capture);
-        zipArchive = za;
-        InitializeVideoPlayback();
-    }
-
-    public void LoadVideo(string path, bool force = false) {
-        if (!force && path == lastLoadedVideoPath_)
-            return;
-
-        var wasPlaying = isPlaying_;
+    public void StopAndReset() {
         Pause();
-
-        string streamingAssetsPath = Application.streamingAssetsPath;
-        path = System.IO.Path.Combine(streamingAssetsPath, path);
-
-        currentVideo_ = new Record3DVideo(path);
-        ReinitializeTextures(currentVideo_.width, currentVideo_.height);
-
         currentFrame_ = 0;
-        videoFrameUpdateTimer_ = new System.Timers.Timer(1000.0 / currentVideo_.fps) {
-            AutoReset = true
-        };
-        videoFrameUpdateTimer_.Elapsed += this.OnTimerTick;
-
-        if (wasPlaying)
-            Play();
-
-        lastLoadedVideoPath_ = path;
-    }
-
-    private void InitializeVideoPlayback() {
-        ReinitializeTextures(currentVideo_.width, currentVideo_.height);
-
-        currentFrame_ = 0;
-        videoFrameUpdateTimer_ = new System.Timers.Timer(1000.0 / currentVideo_.fps) {
-            AutoReset = true
-        };
-        videoFrameUpdateTimer_.Elapsed += OnTimerTick;
-
-        currentVideo_.colorChoice = colorPaths[0];
     }
     #endregion
+
+
+    #region Unity Update
+    private void Update() {
+        if (shouldRefresh_) {
+            UpdateTexturesFromCurrentVideo();
+            shouldRefresh_ = false;
+        }
+    }
+    #endregion
+
 }

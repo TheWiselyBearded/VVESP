@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
@@ -24,13 +22,14 @@ public partial class Record3DVideo {
 
     #region Private Fields
     private float fx_, fy_, tx_, ty_;
-    private ZipArchive underlyingZip_;
-    private string captureTitle;
+    private readonly IVolumetricVideoSource dataSource;
 
-    // For demonstration, these remain here. Could also be in a "private constants" partial.
     protected IntPtr turboJPEGHandle;
     protected int loadedRGBWidth = 1440;
     protected int loadedRGBHeight = 1920;
+
+    // [Optional] For debugging or naming
+    private string captureTitle;
     #endregion
 
     #region Public Fields
@@ -56,34 +55,36 @@ public partial class Record3DVideo {
 
     #region Constructors
     /// <summary>
-    /// Initializes a new Record3DVideo instance from a ZIP archive.
+    /// Constructor that takes an IVolumetricVideoSource (async initialization must happen outside).
     /// </summary>
-    public Record3DVideo(ZipArchive z) {
-        underlyingZip_ = z;
+    public Record3DVideo(IVolumetricVideoSource source) {
+        dataSource = source ?? throw new ArgumentNullException(nameof(source));
         InitComponents();
-        InitializeFromMetadata("capture/metadata");
-        InitializeBuffers();
-    }
 
-    /// <summary>
-    /// Initializes a new Record3DVideo instance from a ZIP archive with specific capture information.
-    /// </summary>
-    public Record3DVideo(ZipArchive z, Capture capture) {
-        underlyingZip_ = z;
-        InitComponents();
-        captureTitle = capture.filename.Replace(".zip", "");
-        Debug.Log($"Capture title loaded {captureTitle}");
+        // Copy metadata from dataSource
+        numFrames_ = dataSource.FrameCount;
+        fps_ = dataSource.FPS;
+        width_ = dataSource.Width;
+        height_ = dataSource.Height;
+        fx_ = dataSource.Fx;
+        fy_ = dataSource.Fy;
+        tx_ = dataSource.Tx;
+        ty_ = dataSource.Ty;
 
-        InitializeFromMetadata($"{captureTitle}/metadata");
-        InitializeBuffers();
-    }
+        // Let the DataLayer know about our metadata
+        var parsedMetadata = new Record3DMetadata {
+            w = width_,
+            h = height_,
+            fps = fps_,
+            K = new System.Collections.Generic.List<float>
+            {
+                fx_, 0, 0, 0,
+                fy_, 0, 0,
+                tx_, ty_
+            }
+        };
+        DataLayer.SetCameraMetadata(parsedMetadata);
 
-    /// <summary>
-    /// Initializes a new Record3DVideo instance from a local file path.
-    /// </summary>
-    public Record3DVideo(string filepath) {
-        underlyingZip_ = ZipFile.Open(filepath, ZipArchiveMode.Read);
-        InitializeFromMetadata("metadata");
         InitializeBuffers();
     }
     #endregion
@@ -91,41 +92,9 @@ public partial class Record3DVideo {
     #region Initialization Methods
     public void InitComponents() {
         DataLayer = new DataLayer();
-        // Could also initialize your TurboJPEG handle once here
         turboJPEGHandle = Record3DNative.TjInitDecompress();
     }
 
-    /// <summary>
-    /// Initializes video parameters from metadata file.
-    /// </summary>
-    private void InitializeFromMetadata(string metadataPath) {
-        using (var metadataStream = new StreamReader(underlyingZip_.GetEntry(metadataPath).Open())) {
-            string jsonContents = metadataStream.ReadToEnd();
-            Record3DMetadata parsedMetadata = JsonUtility.FromJson<Record3DMetadata>(jsonContents);
-
-            // Initialize properties
-            fps_ = parsedMetadata.fps;
-            width_ = parsedMetadata.w;
-            height_ = parsedMetadata.h;
-
-            // Intrinsic matrix
-            fx_ = parsedMetadata.K[0];
-            fy_ = parsedMetadata.K[4];
-            tx_ = parsedMetadata.K[6];
-            ty_ = parsedMetadata.K[7];
-
-            DataLayer.SetCameraMetadata(parsedMetadata);
-        }
-
-        // Attempt to infer the number of frames from entries containing ".depth" or ".bytes"
-        numFrames_ = underlyingZip_.Entries.Count(x => x.FullName.Contains(".depth"));
-        if (numFrames_ == 0)
-            numFrames_ = underlyingZip_.Entries.Count(x => x.FullName.Contains(".bytes"));
-    }
-
-    /// <summary>
-    /// Initializes buffer arrays for frame data.
-    /// </summary>
     private void InitializeBuffers() {
         rgbBuffer = new byte[width_ * height_ * 3];
         rgbBufferBG = new byte[width_ * height_ * 3];
@@ -134,6 +103,35 @@ public partial class Record3DVideo {
     #endregion
 
     #region Frame Processing Methods
+    /// <summary>
+    /// An example method to fully load one frame: 
+    /// fetch depth/color data from the data source, then store them in the class buffers.
+    /// </summary>
+    public async Task LoadFrame(int frameIdx) {
+        if (frameIdx < 0 || frameIdx >= numFrames_)
+            throw new IndexOutOfRangeException($"Frame {frameIdx} out of range");
+
+        // 1. Retrieve buffers asynchronously
+        byte[] depthBytes = await dataSource.GetDepthBufferAsync(frameIdx);
+        byte[] colorBytes = await dataSource.GetColorBufferAsync(frameIdx);
+
+        // 2. Store them in our local buffers (for TPL dataflow or subsequent decompression)
+        lzfseDepthBuffer = depthBytes;
+        jpgBuffer = colorBytes;
+
+        // 3. (Optional) Post into a TPL block for further parallel decoding
+        DataLayer.encodedBuffer.Post((jpgBuffer, lzfseDepthBuffer));
+
+        // 4. If you want to do synchronous decoding here, you can:
+        // e.g. Decompress depth into positionsBuffer or color into rgbBuffer
+        // then fire OnLoadDepth?.Invoke(positionsBuffer); 
+        // or OnLoadColor?.Invoke(rgbBuffer);
+    }
+
+    // If you still want TPL Dataflow for advanced parallel operations, 
+    // you can adapt your old "FrameDataProduce" or "LoadFrameDataAsync" 
+    // to call dataSource.*Async() under the hood.
+    
     /// <summary>
     /// Produces frame data for processing by reading from the ZIP archive.
     /// </summary>
@@ -158,29 +156,16 @@ public partial class Record3DVideo {
         blocks.colorBGBlock.Post(frameIdx);
         // Optionally, you could await completions
         // await Task.WhenAll(blocks.depthDecodeBlock.Completion, blocks.colorDecodeBlock.Completion);
-    }
+    }    
+
     #endregion
 
-    #region Uncompressed Data Loading Methods
+    #region Cleanup
     /// <summary>
-    /// Loads frame data directly from uncompressed files for development purposes.
+    /// Closes the underlying data source (e.g. disposing .zip, etc.).
     /// </summary>
-    public void LoadFrameDataUncompressed(int frameIdx) {
-        using (var lzfseDepthStream = underlyingZip_.GetEntry($"dev/rgbd/d/d{frameIdx}.bytes").Open())
-        using (var memoryStream = new MemoryStream()) {
-            lzfseDepthStream.CopyTo(memoryStream);
-            lzfseDepthBuffer = memoryStream.GetBuffer();
-            float[] p = VVP_Utilities.ConvertByteArrayToFloatArray(lzfseDepthBuffer);
-            Buffer.BlockCopy(p, 0, positionsBuffer, 0, lzfseDepthBuffer.Length);
-        }
-
-        using (var jpgStream = underlyingZip_.GetEntry($"dev/rgbd/c/c{frameIdx}.bytes").Open())
-        using (var memoryStream = new MemoryStream()) {
-            jpgStream.CopyTo(memoryStream);
-            jpgBuffer = memoryStream.GetBuffer();
-            rgbBuffer = new byte[jpgBuffer.Length];
-            Buffer.BlockCopy(jpgBuffer, 0, rgbBuffer, 0, jpgBuffer.Length);
-        }
+    public void CloseVideo() {
+        dataSource.CloseSource();
     }
     #endregion
 }

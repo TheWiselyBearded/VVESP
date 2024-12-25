@@ -105,17 +105,23 @@ public partial class Record3DPlayback
 
     private void UpdateTexturesFromCurrentVideo()
     {
-        // Position data
-        positionTex.SetPixelData(currentVideo_.positionsBuffer, 0);
-        positionTex.Apply(false, false);
+        if (currentVideo_ == null) return;
 
-        // Color data
-        colorTex.SetPixelData(currentVideo_.rgbBuffer, 0);
-        colorTex.Apply(false, false);
+        // If positionsBuffer was populated (e.g. after decompression),
+        // copy into positionTex
+        if (currentVideo_.positionsBuffer != null && currentVideo_.positionsBuffer.Length > 0) {
+            positionTex.SetPixelData(currentVideo_.positionsBuffer, 0);
+            positionTex.Apply(false, false);
+        }
 
-        // BG color data
-        if (currentVideo_.rgbBufferBG != null)
-        {
+        // If rgbBuffer was populated, copy to colorTex
+        if (currentVideo_.rgbBuffer != null && currentVideo_.rgbBuffer.Length > 0) {
+            colorTex.SetPixelData(currentVideo_.rgbBuffer, 0);
+            colorTex.Apply(false, false);
+        }
+
+        // If you use a separate background buffer
+        if (currentVideo_.rgbBufferBG != null && currentVideo_.rgbBufferBG.Length > 0) {
             colorTexBG.SetPixelData(currentVideo_.rgbBufferBG, 0);
             colorTexBG.Apply(false, false);
         }
@@ -164,6 +170,8 @@ public partial class Record3DPlayback
     private void OnDestroy()
     {
         StopServerThread();
+        if (currentVideo_ != null)
+            currentVideo_.CloseVideo();
     }
     #endregion
 

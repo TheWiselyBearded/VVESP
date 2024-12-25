@@ -12,7 +12,7 @@ public class R3DVideoClip : PlayableAsset, ITimelineClipAsset
     public R3DVideoBehaviour template = new R3DVideoBehaviour();
     public ExposedReference<Record3DPlayback> endLocation;
 
-    public override double duration => playback == null ? 0 : playback.numberOfFrames / playback.fps;
+    public override double duration => playback == null ? 0 : playback.currentVideo_.numFrames / playback.currentVideo_.fps;
 
     public ClipCaps clipCaps => ClipCaps.Blending;
 

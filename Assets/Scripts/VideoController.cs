@@ -62,10 +62,10 @@ public class VideoController : MonoBehaviour
         videoPlayer.LoadFrameAsync(frameCounter);
         if (playbackDirection == 0) {
             frameCounter++;
-            frameCounter %= (videoPlayer.numberOfFrames);
+            frameCounter %= (videoPlayer.currentVideo_.numFrames);
         } else if (playbackDirection == -1) {
             frameCounter--;
-            frameCounter = (frameCounter - (videoPlayer.numberOfFrames) * -1) % (videoPlayer.numberOfFrames);
+            frameCounter = (frameCounter - (videoPlayer.currentVideo_.numFrames) * -1) % (videoPlayer.currentVideo_.numFrames);
         }
         //Debug.Log($"Frame Counter {frameCounter}");
     }
