@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class ConnectServer : MonoBehaviour
 {
-    public ReceiveAndExtractZip ReceiveZipFileFromServer;
+    public TcpZipDataClient ReceiveZipFileFromServer;
     public Material changed;
 
     private void OnTriggerEnter(Collider other) {

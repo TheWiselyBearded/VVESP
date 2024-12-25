@@ -1,12 +1,13 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class CaptureInfoContainer : MonoBehaviour {
     [SerializeField] public Capture Capture;
-    public ReceiveAndExtractZip networkInterfacer;
+    public TcpZipDataClient networkInterfacer;
     private void OnEnable() {
-        if (networkInterfacer == null) networkInterfacer = FindObjectOfType<ReceiveAndExtractZip>();
+        if (networkInterfacer == null) networkInterfacer = FindObjectOfType<TcpZipDataClient>();
     }
 
     public void SetCapture(Capture capture) {
@@ -15,8 +16,18 @@ public class CaptureInfoContainer : MonoBehaviour {
     }
 
     public void RequestCapture() {
-        if (networkInterfacer == null) networkInterfacer = FindObjectOfType<ReceiveAndExtractZip>();
+        if (networkInterfacer == null) networkInterfacer = FindObjectOfType<TcpZipDataClient>();
         Debug.Log($"is network interface null? {networkInterfacer == null} and our capture name is {Capture.filename}");
         networkInterfacer.LoadFileRequest(Capture.filename);
     }
+}
+
+[Serializable]
+public class Capture {
+    public string filename;
+}
+
+[Serializable]
+public class CaptureList {
+    public Capture[] captures;
 }

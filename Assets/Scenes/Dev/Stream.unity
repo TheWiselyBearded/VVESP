@@ -262,8 +262,8 @@ GameObject:
   - component: {fileID: 162972264}
   - component: {fileID: 162972263}
   - component: {fileID: 162972267}
-  - component: {fileID: 162972266}
   - component: {fileID: 162972265}
+  - component: {fileID: 162972268}
   m_Layer: 0
   m_Name: VideoController
   m_TagString: Untagged
@@ -321,26 +321,6 @@ MonoBehaviour:
   - {fileID: 8926484042661614526, guid: b93338c12b3fe472c9d486109ca04e29, type: 3}
   - {fileID: 8926484042661614526, guid: 555edab4a660f0a48aecaa36efd73657, type: 3}
   effectIndex: 0
---- !u!114 &162972266
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 162972262}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 949dfb4eccd1c0c4abd39e2763571069, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  localDebug: 1
-  serverAddress: 192.168.0.233
-  serverPort: 11000
-  playback: {fileID: 162972267}
-  videoController: {fileID: 162972263}
-  dispatcher: {fileID: 484017715}
-  filenameToRequest: fam
-  controllerOVR: {fileID: 0}
 --- !u!114 &162972267
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -354,18 +334,37 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   r3dPath: momcouch.r3d
-  streamEffects:
-  - {fileID: 12242066}
-  - {fileID: 854262885}
-  cR: {fileID: 8400000, guid: 8b0b02e281ec89b43b524bd4a37e4689, type: 2}
-  dR: {fileID: 8400000, guid: 2b134652d20da4c4d9a05ffd8f9cb087, type: 2}
-  isPlaying_: 0
-  numParticles: 100000
   colorPaths:
   - capture/rgbd/{0}.jpg
   colorChoice: 
+  streamEffects:
+  - {fileID: 12242066}
+  - {fileID: 854262885}
   saveToDisk: 0
   loadData: 1
+  cR: {fileID: 8400000, guid: 8b0b02e281ec89b43b524bd4a37e4689, type: 2}
+  dR: {fileID: 8400000, guid: 2b134652d20da4c4d9a05ffd8f9cb087, type: 2}
+  isPlaying_: 0
+--- !u!114 &162972268
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 162972262}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 48766b84e010347c4a44112422a69585, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  localDebug: 1
+  serverAddress: 192.168.0.233
+  serverPort: 11000
+  playback: {fileID: 162972267}
+  videoController: {fileID: 162972263}
+  controllerOVR: {fileID: 0}
+  dispatcher: {fileID: 484017715}
+  filenameToRequest: fam
 --- !u!1 &392367609
 GameObject:
   m_ObjectHideFlags: 0
@@ -517,7 +516,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f462eac198a79dc44b15ed7ff90d76d0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ReceiveZipFileFromServer: {fileID: 162972266}
+  ReceiveZipFileFromServer: {fileID: 0}
   changed: {fileID: 2100000, guid: 09344d2b94c903849ab32bc00502500c, type: 2}
 --- !u!65 &484017711
 BoxCollider:
