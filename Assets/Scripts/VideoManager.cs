@@ -20,7 +20,8 @@ public class VideoManager : MonoBehaviour
         if (videoPlayer == null) videoPlayer = gameObject.AddComponent<Record3DPlayback>();
 
         // We load the video from the user-specified filepath
-        videoPlayer.LoadVideoFromLocalDisk(videoFilePath);
+        //videoPlayer.LoadVideoFromLocalDisk(videoFilePath);
+        _ = videoPlayer.LoadLocalVideoAsync(videoFilePath);
 
         // Here we compute which frame should be the starting one.
         int videoStartingFrame = (int)Mathf.Round(startingFramePercent * videoPlayer.currentVideo_.numFrames);

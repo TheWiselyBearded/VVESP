@@ -49,12 +49,27 @@ public partial class Record3DPlayback : MonoBehaviour {
     }
 
     // If we want a direct local file source
-    public void LoadVideoFromLocalDisk(string path) {
+    /*public void LoadVideoFromLocalDisk(string path) {
         Debug.LogError("Not implemented local file storage yet");
-        //var fileSource = new LocalFileVolumetricVideoSource(path); // hypothetical
-        //currentVideo_ = new Record3DVideo(fileSource);
-        //// ...
+    }*/
+
+    public async Task LoadLocalVideoAsync(string zipFileName, string captureTitle = "") {
+        var localSource = new LocalFileVolumetricVideoSource(zipFileName, captureTitle);
+        await localSource.InitializeSourceAsync();
+
+        currentVideo_ = new Record3DVideo(localSource);
+
+        ReinitializeTextures(currentVideo_.width, currentVideo_.height);
+
+        // Start a timer for frames, etc...
+        // 5. Start at frame 0, create a timer at [1000/fps] for playback
+        currentFrame_ = 0;
+        videoFrameUpdateTimer_ = new System.Timers.Timer(1000.0 / currentVideo_.fps) {
+            AutoReset = true
+        };
+        videoFrameUpdateTimer_.Elapsed += OnTimerTick;
     }
+
     #endregion
 
     #region Playback Controls
