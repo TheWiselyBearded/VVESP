@@ -15,9 +15,7 @@ public class VfxSwapper : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.N))
         {
-            streamEffects.visualEffectAsset = effects[effectIndex];
-            effectIndex++;
-            effectIndex %= effects.Length;
+            SequenceVFX();
         }
     }
 

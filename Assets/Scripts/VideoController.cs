@@ -17,9 +17,6 @@ public class VideoController : MonoBehaviour
         //Application.targetFrameRate = 30;
         startRendering = false;
         if (videoPlayer == null) videoPlayer = FindObjectOfType<Record3DPlayback>(); // gameObject.GetComponent<Record3DPlayback>();
-        //videoPlayer.LoadFrame(10);
-        //InvokeRepeating("NextFrame", 1.0f, 0.03f);
-        //InvokeRepeating("NextFrame", 1.0f, 0.1f);
     }
 
     protected void PausePlay() {
@@ -61,20 +58,14 @@ public class VideoController : MonoBehaviour
     public void SetPlay() => videoPlayer.isPlaying_ = true;
     public void SetPause() => videoPlayer.isPlaying_ = false;
 
-    public void SequenceFrame() {
-        //Debug.Log("Begin next frame");
-        //if (frameCounter > videoPlayer.numberOfFrames) frameCounter = 0;
-        //if (frameCounter > 89) frameCounter = 0;
-        //if (frameCounter > videoPlayer.numberOfFrames/2) frameCounter = 0;      
-
-        //videoPlayer.LoadFrame(frameCounter);
+    public void SequenceFrame() {   
         videoPlayer.LoadFrameAsync(frameCounter);
         if (playbackDirection == 0) {
             frameCounter++;
-            frameCounter %= (videoPlayer.numberOfFrames);
+            frameCounter %= (videoPlayer.currentVideo_.numFrames);
         } else if (playbackDirection == -1) {
             frameCounter--;
-            frameCounter = (frameCounter - (videoPlayer.numberOfFrames) * -1) % (videoPlayer.numberOfFrames);
+            frameCounter = (frameCounter - (videoPlayer.currentVideo_.numFrames) * -1) % (videoPlayer.currentVideo_.numFrames);
         }
         //Debug.Log($"Frame Counter {frameCounter}");
     }
