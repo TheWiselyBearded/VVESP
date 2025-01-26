@@ -64,7 +64,7 @@ public partial class TcpZipDataClient
     {
         selectCapture = captures.FirstOrDefault(c => c.filename.Contains(fileName));
         Debug.Log($"Select capture {selectCapture?.filename}");
-        filenameToRequest = fileName;
+        //filenameToRequest = fileName;
         commandQueue.Enqueue(2);
     }
 }

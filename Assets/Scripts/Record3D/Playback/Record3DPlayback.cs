@@ -8,6 +8,7 @@ using System.Threading;
 public partial class Record3DPlayback : MonoBehaviour {
     [Header("Rendering")]
     public VisualEffect[] streamEffects;
+    public DepthMeshGenerator meshGenerator;
 
     // Playback state
     private int currentFrame_;
@@ -33,6 +34,7 @@ public partial class Record3DPlayback : MonoBehaviour {
         var zipSource = new ZipVolumetricVideoSource(za, captureTitle);
         // 2. Initialize it (reads metadata, sets up internal fields)
         await zipSource.InitializeSourceAsync();
+        //meshGenerator.Initialize(zipSource.Fx, zipSource.Fy, zipSource.Tx, zipSource.Ty, zipSource.Width, zipSource.Height);
 
         // 3. Build Record3DVideo with this data source
         currentVideo_ = new Record3DVideo(zipSource);
@@ -56,6 +58,7 @@ public partial class Record3DPlayback : MonoBehaviour {
     public async Task LoadLocalVideoAsync(string zipFileName, string captureTitle = "") {
         var localSource = new LocalFileVolumetricVideoSource(zipFileName, captureTitle);
         await localSource.InitializeSourceAsync();
+        //meshGenerator.Initialize(localSource.Fx, localSource.Fy, localSource.Tx, localSource.Ty, localSource.Width, localSource.Height);
 
         currentVideo_ = new Record3DVideo(localSource);
 

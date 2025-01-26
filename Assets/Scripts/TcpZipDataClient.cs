@@ -30,6 +30,12 @@ public partial class TcpZipDataClient : MonoBehaviour {
     public VideoController videoController;
     public VVESP_UI_Controller controllerOVR;
     public UnityMainThreadDispatcher dispatcher;
+
+    [Header("Download Options")]
+    [Tooltip("If enabled, downloaded ZIP files will be saved to the StreamingAssets folder.")]
+    public bool saveToDisk = false;
+
+
     #endregion
 
     #region Private Fields

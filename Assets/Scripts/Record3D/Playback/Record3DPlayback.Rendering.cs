@@ -95,6 +95,9 @@ public partial class Record3DPlayback
         colorTex.SetPixelData(currentVideo_.DataLayer.rgbBuffer, 0);
         colorTex.Apply(false, false);
 
+        // feed to mesh generator
+        //UpdateFromTextures(colorTex, positionTex);
+
         // BG color
         if (currentVideo_.rgbBufferBG != null)
         {
@@ -102,6 +105,15 @@ public partial class Record3DPlayback
             colorTexBG.Apply(false, false);
         }
     }
+
+    void UpdateFromTextures(Texture2D colorTex, Texture2D depthTex) =>
+        meshGenerator.UpdateMeshFromTextures(colorTex, depthTex);
+    
+    
+    void UpdateFromArrays(byte[] rgbData, float[] depthData) =>
+        meshGenerator.UpdateMeshFromArrays(rgbData, depthData);
+    
+
 
     private void UpdateTexturesFromCurrentVideo()
     {

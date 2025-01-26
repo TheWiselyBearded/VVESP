@@ -84,38 +84,49 @@ public partial class TcpZipDataClient
     /// Processes the received ZIP file data and updates the playback components
     /// </summary>
     private void ProcessReceivedZipFile() {
-        // memoryStream is populated with the .zip data previously
         var zipMemoryStream = new MemoryStream(memoryStream.ToArray());
         var archive = new ZipArchive(zipMemoryStream);
 
-        // Because we need to do asynchronous calls on the main thread, 
-        // we can wrap this logic into an async method with a TaskCompletionSource
-        var tcs = new TaskCompletionSource<bool>();
+        // Save to StreamingAssets if enabled
+        if (saveToDisk) {
+            // Ensure the filename is safe for the file system
+            string sanitizedFilename = string.Join("_", filenameToRequest.Split(Path.GetInvalidFileNameChars()));
 
-        // Enqueue the async logic on the Unity main thread
+            // Append .zip if not already present
+            if (!sanitizedFilename.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) {
+                sanitizedFilename += ".zip";
+            }
+
+            string path = Path.Combine(Application.streamingAssetsPath, sanitizedFilename);
+
+            try {
+                // Reset the memory stream position before copying
+                zipMemoryStream.Position = 0;
+
+                using (var fileStream = new FileStream(path, FileMode.Create, FileAccess.Write)) {
+                    zipMemoryStream.CopyTo(fileStream);
+                }
+
+                Debug.Log($"Saved ZIP file to: {path}");
+            } catch (Exception ex) {
+                Debug.LogError($"Failed to save ZIP file: {ex.Message}");
+            }
+        }
+
+        // Proceed with existing logic
+        var tcs = new TaskCompletionSource<bool>();
         dispatcher.Enqueue(async () => {
             try {
-                // 1) Await the actual loading from the .zip:
                 await playback.LoadVideoFromZipAsync(archive, selectCapture?.filename);
-
-                // 2) Once loaded, set the video controller to ready state
                 videoController.SetReadyState();
-
-                // 3) Signal success via TCS
                 tcs.SetResult(true);
             } catch (Exception ex) {
                 tcs.SetException(ex);
             }
         });
 
-        // Optionally: If you are *already* inside an async method, you can do:
-        // await tcs.Task;
-        // or if you're in a sync method (like now), you can continue if you 
-        // don't strictly need to block until it's done.
-        // For demonstration, let's do it in a background Task:
         Task.Run(async () => {
             try {
-                // Wait for the main-thread loading to complete
                 await tcs.Task;
                 Debug.Log("Zip file loaded successfully (async).");
             } catch (Exception e) {
@@ -123,6 +134,10 @@ public partial class TcpZipDataClient
             }
         });
     }
+
+
+
+
     #endregion
 
     #region JSON Reception

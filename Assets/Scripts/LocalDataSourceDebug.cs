@@ -5,7 +5,6 @@ using System.IO;
 using System.IO.Compression;
 using System.Threading.Tasks;
 using PimDeWitte.UnityMainThreadDispatcher;
-using UnityEditor.Search;
 using UnityEngine;
 
 public class LocalDataSourceDebug : MonoBehaviour
@@ -30,7 +29,7 @@ public class LocalDataSourceDebug : MonoBehaviour
         }
     }
 
-    private void ProcessReceivedZipFile() {
+    public void ProcessReceivedZipFile() {
         
         // Because we need to do asynchronous calls on the main thread, 
         // we can wrap this logic into an async method with a TaskCompletionSource

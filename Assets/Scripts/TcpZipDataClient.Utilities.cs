@@ -23,7 +23,7 @@ public partial class TcpZipDataClient
             if (command == 2 && !string.IsNullOrEmpty(filenameToRequest))
             {
                 SendFileRequest(filenameToRequest);
-                filenameToRequest = null;
+                //filenameToRequest = null;
             }
             else
             {
