@@ -4,6 +4,7 @@ RWStructuredBuffer<float3> vertices;
 RWStructuredBuffer<float2> uvs;
 RWStructuredBuffer<int> triangles;
 RWStructuredBuffer<int> triangleCounter;
+RWStructuredBuffer<float3> colors;  // RGB colors as float3
 
 uint width;
 uint height;
@@ -46,11 +47,16 @@ void GenerateMesh(uint3 id : SV_DispatchThreadID)
     uint bottomPixel = (id.y + 1) * width + id.x;
     uint bottomRightPixel = bottomPixel + 1;
     
-    // Get vertices
+    // Get vertices and colors
     float3 v00 = vertices[currentPixel];
     float3 v10 = vertices[rightPixel];
     float3 v01 = vertices[bottomPixel];
     float3 v11 = vertices[bottomRightPixel];
+    
+    float3 c00 = colors[currentPixel];
+    float3 c10 = colors[rightPixel];
+    float3 c01 = colors[bottomPixel];
+    float3 c11 = colors[bottomRightPixel];
     
     // Try to create triangles
     if (IsValidTriangle(v00, v01, v10))

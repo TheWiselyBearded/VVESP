@@ -99,7 +99,8 @@ public partial class Record3DPlayback
 
         // feed to mesh generator
         //UpdateFromTextures(colorTex, positionTex);
-        meshGenerator.UpdateMeshFromPointCloud(currentVideo_.DataLayer.positionsBuffer);
+        //meshGenerator.UpdateMeshFromPointCloud(currentVideo_.DataLayer.positionsBuffer);
+        meshGenerator.UpdateMeshFromPointCloud(currentVideo_.DataLayer.positionsBuffer, currentVideo_.DataLayer.rgbBuffer);
 
         // BG color
         if (currentVideo_.rgbBufferBG != null)
