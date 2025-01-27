@@ -1,43 +1,31 @@
-using System;
 using UnityEngine;
+using System.Linq;
+using System.Collections.Generic;
 
 public class DepthMeshGenerator : MonoBehaviour {
     [Header("Required Components")]
     public ComputeShader computeShader;
     public Material meshMaterial;
 
-    [Header("Depth Parameters")]
-    [Tooltip("Minimum valid depth value in meters")]
-    public float minDepth = 0.1f;
-    [Tooltip("Maximum valid depth value in meters")]
-    public float maxDepth = 10.0f;
-    [Tooltip("Maximum allowed depth difference ratio between adjacent pixels")]
-    [Range(0.01f, 1.0f)]
-    public float maxDepthDiscontinuity = 0.15f;
+    [Header("Mesh Parameters")]
+    [Tooltip("Maximum allowed edge length between vertices")]
+    public float maxEdgeLength = 0.1f;
     [Tooltip("Maximum angle between adjacent triangles in degrees")]
     [Range(0f, 180f)]
-    public float maxSurfaceAngle = 60f; // Add reference for material
+    public float maxSurfaceAngle = 60f;
+
     private ComputeBuffer vertexBuffer;
     private ComputeBuffer uvBuffer;
     private ComputeBuffer triangleBuffer;
-    private ComputeBuffer depthBuffer;
+    private ComputeBuffer triangleCounterBuffer;
 
     private int width, height;
     private Mesh mesh;
     private int kernel;
     private bool isInitialized = false;
 
-    // Cache for camera parameters
-    private float fx, fy, tx, ty;
-
-    // Cached textures for streaming updates
-    private RenderTexture colorRT;
-    private Texture2D colorTexture;
-
     void Awake() {
-        // Create default material if none assigned
         if (meshMaterial == null) {
-            // Use URP Lit shader instead of Standard
             meshMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
             meshMaterial.color = Color.white;
 
@@ -49,7 +37,7 @@ public class DepthMeshGenerator : MonoBehaviour {
         }
     }
 
-    public void Initialize(float fx, float fy, float tx, float ty, int width, int height) {
+    public void Initialize(int width, int height) {
         if (computeShader == null) {
             Debug.LogError("Compute shader is not assigned!");
             return;
@@ -57,213 +45,175 @@ public class DepthMeshGenerator : MonoBehaviour {
 
         this.width = width;
         this.height = height;
-        this.fx = fx;
-        this.fy = fy;
-        this.tx = tx;
-        this.ty = ty;
 
-        // Ensure MeshFilter exists
         MeshFilter meshFilter = GetComponent<MeshFilter>();
         if (meshFilter == null) {
             meshFilter = gameObject.AddComponent<MeshFilter>();
         }
 
-        // Ensure MeshRenderer exists and has material
         MeshRenderer renderer = GetComponent<MeshRenderer>();
         if (renderer == null) {
             renderer = gameObject.AddComponent<MeshRenderer>();
             renderer.material = meshMaterial;
         }
 
-        // Create mesh if it doesn't exist
         if (mesh == null) {
             mesh = new Mesh();
-            mesh.MarkDynamic(); // Optimize for frequent updates
+            mesh.MarkDynamic();
             meshFilter.mesh = mesh;
         }
 
-        // Calculate buffer sizes
-        int quadCount = (width - 1) * (height - 1);
-        int vertexCount = width * height; // One vertex per pixel
-        int triangleCount = quadCount * 6; // Two triangles per quad
+        int vertexCount = width * height;
+        int maxTriangleCount = (width - 1) * (height - 1) * 2;
+        int maxIndexCount = maxTriangleCount * 3;
 
-        // Create buffers
         vertexBuffer?.Release();
         uvBuffer?.Release();
         triangleBuffer?.Release();
-        depthBuffer?.Release();
+        triangleCounterBuffer?.Release();
 
         vertexBuffer = new ComputeBuffer(vertexCount, sizeof(float) * 3);
         uvBuffer = new ComputeBuffer(vertexCount, sizeof(float) * 2);
-        triangleBuffer = new ComputeBuffer(triangleCount, sizeof(int));
-        depthBuffer = new ComputeBuffer(width * height, sizeof(float));
+        triangleBuffer = new ComputeBuffer(maxIndexCount, sizeof(int));
+        triangleCounterBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.Raw);
 
-        // Setup color texture
-        if (colorRT != null) colorRT.Release();
-        if (colorTexture != null) Destroy(colorTexture);
-
-        colorRT = new RenderTexture(width, height, 0, RenderTextureFormat.ARGB32);
-        colorRT.enableRandomWrite = true;
-        colorRT.Create();
-
-        colorTexture = new Texture2D(width, height, TextureFormat.RGB24, false);
-
-        // Cache kernel ID and set shader parameters
         kernel = computeShader.FindKernel("GenerateMesh");
-        Debug.Log($"Found kernel index: {kernel}"); // Debug log
 
-        // Set constant shader parameters
         computeShader.SetBuffer(kernel, "vertices", vertexBuffer);
         computeShader.SetBuffer(kernel, "uvs", uvBuffer);
         computeShader.SetBuffer(kernel, "triangles", triangleBuffer);
-        computeShader.SetBuffer(kernel, "depthBuffer", depthBuffer);
-        computeShader.SetTexture(kernel, "colorTexture", colorRT);
+        computeShader.SetBuffer(kernel, "triangleCounter", triangleCounterBuffer);
 
-        // Set parameters
-        computeShader.SetFloat("fx", fx);
-        computeShader.SetFloat("fy", fy);
-        computeShader.SetFloat("tx", tx);
-        computeShader.SetFloat("ty", ty);
         computeShader.SetInt("width", width);
         computeShader.SetInt("height", height);
-        computeShader.SetFloat("minDepth", minDepth);
-        computeShader.SetFloat("maxDepth", maxDepth);
-        computeShader.SetFloat("maxDepthDiscontinuity", maxDepthDiscontinuity);
+        computeShader.SetFloat("maxEdgeLength", maxEdgeLength);
         computeShader.SetFloat("maxSurfaceAngle", maxSurfaceAngle);
 
         isInitialized = true;
     }
 
-    public void UpdateMeshFromTextures(Texture2D newColorTexture, Texture2D depthTexture) {
+    public void UpdateMeshFromPointCloud(float[] pointData) {
         if (!isInitialized) {
-            Debug.LogError("DepthMeshGenerator not initialized! Call Initialize() first.");
+            Debug.LogError("PointCloudMeshGenerator not initialized! Call Initialize() first.");
             return;
         }
 
-        // Update color texture
-        Graphics.Blit(newColorTexture, colorRT);
-
-        // Get depth data and update buffer
-        // Assuming depthTexture is RFloat format
-        RenderTexture tmpRT = RenderTexture.GetTemporary(width, height, 0, RenderTextureFormat.RFloat);
-        Graphics.Blit(depthTexture, tmpRT);
-
-        // Store current active render texture
-        RenderTexture previousActive = RenderTexture.active;
-
-        // Read depth data
-        RenderTexture.active = tmpRT;
-        Texture2D tmpTex = new Texture2D(width, height, TextureFormat.RFloat, false);
-        tmpTex.ReadPixels(new Rect(0, 0, width, height), 0, 0);
-        tmpTex.Apply();
-
-        // Restore previous active render texture
-        RenderTexture.active = previousActive;
-
-        float[] depthData = new float[width * height];
-        System.Buffer.BlockCopy(tmpTex.GetRawTextureData(), 0, depthData, 0, depthData.Length * sizeof(float));
-
-        depthBuffer.SetData(depthData);
-
-        // Dispatch shader
-        computeShader.Dispatch(kernel, Mathf.CeilToInt(width / 8f), Mathf.CeilToInt(height / 8f), 1);
+        if (pointData.Length != width * height * 4) {
+            Debug.LogError($"Point cloud data length ({pointData.Length}) doesn't match initialized dimensions ({width * height * 4})");
+            return;
+        }
 
         try {
-            // Get data back
-            Vector3[] vertices = new Vector3[vertexBuffer.count];
-            Vector2[] uvs = new Vector2[uvBuffer.count];
-            int[] triangles = new int[triangleBuffer.count];
+            // First pass: identify valid vertices and create mapping
+            List<Vector3> validVertices = new List<Vector3>();
+            List<Vector2> validUVs = new List<Vector2>();
+            Dictionary<int, int> oldToNewIndex = new Dictionary<int, int>();
 
-            vertexBuffer.GetData(vertices);
-            uvBuffer.GetData(uvs);
-            triangleBuffer.GetData(triangles);
+            for (int i = 0; i < width * height; i++) {
+                int baseIndex = i * 4;
+                float x = pointData[baseIndex];
+                float y = pointData[baseIndex + 1];
+                float z = pointData[baseIndex + 2];
 
-            // Validate data before applying to mesh
-            if (vertices.Length == 0 || triangles.Length == 0) {
-                Debug.LogWarning("No valid mesh data generated");
+                if (!float.IsNaN(x) && !float.IsNaN(y) && !float.IsNaN(z)) {
+                    oldToNewIndex[i] = validVertices.Count;
+                    validVertices.Add(new Vector3(x, y, z));
+                    validUVs.Add(new Vector2((i % width) / (float)width, (i / width) / (float)height));
+                }
+            }
+
+            //Debug.Log($"Valid vertices: {validVertices.Count} out of {width * height}");
+
+            if (validVertices.Count == 0) {
+                Debug.LogWarning("No valid vertices found in point cloud data");
                 return;
             }
 
-            // Update mesh with bounds check
-            mesh.Clear();
-            mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32; // Support larger meshes
-            mesh.vertices = vertices;
-            mesh.uv = uvs;
-            mesh.triangles = triangles;
-            mesh.RecalculateNormals();
-            mesh.RecalculateBounds();
+            // Update compute shader with valid vertices
+            vertexBuffer.SetData(validVertices.ToArray());
+            uvBuffer.SetData(validUVs.ToArray());
 
-            // Update material with color texture
-            if (meshMaterial != null && colorRT != null) {
-                meshMaterial.mainTexture = colorRT;
+            // Reset triangle counter
+            int[] counterReset = new int[] { 0 };
+            triangleCounterBuffer.SetData(counterReset);
+
+            // Dispatch compute shader
+            computeShader.Dispatch(kernel, Mathf.CeilToInt(width / 8f), Mathf.CeilToInt(height / 8f), 1);
+
+            // Get triangle count
+            int[] triangleCount = new int[1];
+            triangleCounterBuffer.GetData(triangleCount);
+
+            if (triangleCount[0] > 0) {
+                // Get triangles
+                int[] triangles = new int[triangleCount[0]];
+                triangleBuffer.GetData(triangles, 0, 0, triangleCount[0]);
+
+                // Validate triangle indices
+                bool hasInvalidIndices = false;
+                List<int> validTriangles = new List<int>();
+
+                for (int i = 0; i < triangles.Length; i += 3) {
+                    // Check if all three indices of this triangle are valid
+                    if (triangles[i] < validVertices.Count &&
+                        triangles[i + 1] < validVertices.Count &&
+                        triangles[i + 2] < validVertices.Count &&
+                        triangles[i] >= 0 &&
+                        triangles[i + 1] >= 0 &&
+                        triangles[i + 2] >= 0) {
+                        validTriangles.Add(triangles[i]);
+                        validTriangles.Add(triangles[i + 1]);
+                        validTriangles.Add(triangles[i + 2]);
+                    } else {
+                        hasInvalidIndices = true;
+                    }
+                }
+
+                if (hasInvalidIndices) {
+                    Debug.LogWarning($"Filtered out some invalid triangle indices. Valid triangles: {validTriangles.Count / 3} out of {triangles.Length / 3}");
+                }
+
+                if (validTriangles.Count > 0) {
+                    // Keep existing mesh data if possible
+                    if (mesh.vertexCount != validVertices.Count) {
+                        mesh.Clear();
+                        mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+                        mesh.vertices = validVertices.ToArray();
+                        mesh.uv = validUVs.ToArray();
+                    }
+
+                    try {
+                        mesh.triangles = validTriangles.ToArray();
+                        mesh.RecalculateNormals();
+                        mesh.RecalculateBounds();
+                    } catch (System.Exception e) {
+                        Debug.LogError($"Error setting mesh triangles: {e.Message}");
+                        // Keep the mesh but clear triangles
+                        mesh.triangles = new int[0];
+                    }
+                } else {
+                    Debug.LogWarning("No valid triangles after index validation");
+                    // Keep the mesh but clear triangles
+                    mesh.triangles = new int[0];
+                }
+            } else {
+                Debug.LogWarning("No triangles generated from compute shader");
+                // Keep the mesh but clear triangles
+                mesh.triangles = new int[0];
             }
         } catch (System.Exception e) {
-            Debug.LogError($"Error updating mesh: {e.Message}");
-        } finally {
-            // Cleanup temporary resources
-            if (tmpRT != null) {
-                tmpRT.Release();
-                RenderTexture.ReleaseTemporary(tmpRT);
-            }
-            if (tmpTex != null) {
-                Destroy(tmpTex);
-            }
+            Debug.LogError($"Error updating mesh: {e.Message}\n{e.StackTrace}");
         }
-
-        return;    
-    }
-    
-    public void UpdateMeshFromArrays(byte[] rgbData, float[] depthData) {
-    if (!isInitialized) {
-        Debug.LogError("DepthMeshGenerator not initialized! Call Initialize() first.");
-        return;
     }
 
-    // Update color texture
-    colorTexture.LoadRawTextureData(rgbData);
-    colorTexture.Apply();
-    Graphics.Blit(colorTexture, colorRT);
+    private void OnDestroy() {
+        vertexBuffer?.Release();
+        uvBuffer?.Release();
+        triangleBuffer?.Release();
+        triangleCounterBuffer?.Release();
 
-    // Update depth buffer
-    depthBuffer.SetData(depthData);
-
-    // Dispatch shader
-    computeShader.Dispatch(kernel, Mathf.CeilToInt(width / 8f), Mathf.CeilToInt(height / 8f), 1);
-
-    // Get data back
-    Vector3[] vertices = new Vector3[vertexBuffer.count];
-    Vector2[] uvs = new Vector2[uvBuffer.count];
-    int[] triangles = new int[triangleBuffer.count];
-
-    vertexBuffer.GetData(vertices);
-    uvBuffer.GetData(uvs);
-    triangleBuffer.GetData(triangles);
-
-    // Update mesh
-    mesh.Clear();
-    mesh.vertices = vertices;
-    mesh.uv = uvs;
-    mesh.triangles = triangles;
-    mesh.RecalculateNormals();
-}
-
-private void OnDestroy() {
-    if (vertexBuffer != null) vertexBuffer.Release();
-    if (uvBuffer != null) uvBuffer.Release();
-    if (triangleBuffer != null) triangleBuffer.Release();
-    if (depthBuffer != null) depthBuffer.Release();
-
-    if (colorRT != null) {
-        colorRT.Release();
-        Destroy(colorRT);
+        if (mesh != null) {
+            Destroy(mesh);
+        }
     }
-
-    if (colorTexture != null) {
-        Destroy(colorTexture);
-    }
-
-    if (mesh != null) {
-        Destroy(mesh);
-    }
-}
 }

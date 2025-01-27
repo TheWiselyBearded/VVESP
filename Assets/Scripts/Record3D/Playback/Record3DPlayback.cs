@@ -59,6 +59,7 @@ public partial class Record3DPlayback : MonoBehaviour {
         var localSource = new LocalFileVolumetricVideoSource(zipFileName, captureTitle);
         await localSource.InitializeSourceAsync();
         //meshGenerator.Initialize(localSource.Fx, localSource.Fy, localSource.Tx, localSource.Ty, localSource.Width, localSource.Height);
+        meshGenerator.Initialize(localSource.Width, localSource.Height);
 
         currentVideo_ = new Record3DVideo(localSource);
 

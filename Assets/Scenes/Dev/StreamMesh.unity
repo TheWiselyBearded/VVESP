@@ -201,6 +201,9 @@ VisualEffect:
       - m_Value: 0.4
         m_Name: maxU
         m_Overridden: 1
+      - m_Value: -10
+        m_Name: zCrop
+        m_Overridden: 1
     m_Vector2f:
       m_Array: []
     m_Vector3f:
@@ -267,7 +270,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &80003679
 Transform:
   m_ObjectHideFlags: 0
@@ -397,7 +400,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &305009574
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -412,9 +415,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   computeShader: {fileID: 7200000, guid: f671de6fa9ecc45cf9f329cb80382b57, type: 3}
   meshMaterial: {fileID: 2100000, guid: 0bc2d9d0d3d054fb6984ddade82aeb0c, type: 2}
-  minDepth: 0.2
-  maxDepth: 5
-  maxDepthDiscontinuity: 0.05
+  maxEdgeLength: 0.1
   maxSurfaceAngle: 90
 --- !u!4 &305009575
 Transform:
@@ -424,13 +425,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 305009573}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
-  m_LocalPosition: {x: 0.47, y: 1.329391, z: 0.82}
+  m_LocalRotation: {x: -0, y: 0.9888611, z: 0.14884134, w: 0}
+  m_LocalPosition: {x: 2.674, y: 1.6102567, z: 1.393091}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
+  m_LocalEulerAnglesHint: {x: -17.12, y: 180, z: 0}
 --- !u!33 &305009576
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -1259,7 +1260,7 @@ PrefabInstance:
     - target: {fileID: 7028596163184925282, guid: 8f2cac3d498ec471780d466d8823643b,
         type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

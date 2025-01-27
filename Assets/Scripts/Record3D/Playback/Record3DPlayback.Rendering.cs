@@ -85,6 +85,8 @@ public partial class Record3DPlayback
         LoadFrameDataMainThread();
     }
 
+    private bool check = false;
+
     private void LoadFrameDataMainThread()
     {
         // Depth
@@ -97,6 +99,7 @@ public partial class Record3DPlayback
 
         // feed to mesh generator
         //UpdateFromTextures(colorTex, positionTex);
+        meshGenerator.UpdateMeshFromPointCloud(currentVideo_.DataLayer.positionsBuffer);
 
         // BG color
         if (currentVideo_.rgbBufferBG != null)
@@ -106,12 +109,12 @@ public partial class Record3DPlayback
         }
     }
 
-    void UpdateFromTextures(Texture2D colorTex, Texture2D depthTex) =>
-        meshGenerator.UpdateMeshFromTextures(colorTex, depthTex);
+    //void UpdateFromTextures(Texture2D colorTex, Texture2D depthTex) =>
+    //    meshGenerator.UpdateMeshFromTextures(colorTex, depthTex);
     
     
-    void UpdateFromArrays(byte[] rgbData, float[] depthData) =>
-        meshGenerator.UpdateMeshFromArrays(rgbData, depthData);
+    //void UpdateFromArrays(byte[] rgbData, float[] depthData) =>
+    //    meshGenerator.UpdateMeshFromArrays(rgbData, depthData);
     
 
 
