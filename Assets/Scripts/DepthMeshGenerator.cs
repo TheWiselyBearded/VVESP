@@ -1,4 +1,7 @@
 using UnityEngine;
+using Unity.Collections;
+using Unity.Jobs;
+using Unity.Burst;
 using System.Linq;
 using System.Collections.Generic;
 
@@ -25,18 +28,62 @@ public class DepthMeshGenerator : MonoBehaviour {
     private int kernel;
     private bool isInitialized = false;
 
+    // Cached arrays to prevent reallocations
+    private Vector3[] cachedVertices;
+    private Vector2[] cachedUVs;
+    private Color32[] cachedColors;
+    private Vector3[] cachedColorFloat3;
+    private int[] cachedTriangles;
+
+    // Job struct for parallel vertex processing
+    [BurstCompile]
+    private struct ProcessVerticesJob : IJobParallelFor {
+        [ReadOnly] public NativeArray<float> pointData;
+        [ReadOnly] public NativeArray<byte> colorData;
+        public NativeArray<Vector3> vertices;
+        public NativeArray<Vector2> uvs;
+        public NativeArray<Color32> colors;
+        public NativeArray<int> validityMask;
+        public int width;
+        public int height;
+
+        public void Execute(int index) {
+            int baseIndex = index * 4;
+            int colorIndex = index * 3;
+
+            float x = pointData[baseIndex];
+            float y = pointData[baseIndex + 1];
+            float z = pointData[baseIndex + 2];
+
+            if (!float.IsNaN(x) && !float.IsNaN(y) && !float.IsNaN(z)) {
+                vertices[index] = new Vector3(x, y, z);
+                uvs[index] = new Vector2((index % width) / (float)width, (index / width) / (float)height);
+                colors[index] = new Color32(
+                    colorData[colorIndex],
+                    colorData[colorIndex + 1],
+                    colorData[colorIndex + 2],
+                    255
+                );
+                validityMask[index] = 1;
+            } else {
+                validityMask[index] = 0;
+            }
+        }
+    }
+
     void Awake() {
+        InitializeMaterial();
+    }
+
+    private void InitializeMaterial() {
         if (meshMaterial == null) {
             meshMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
             meshMaterial.color = Color.white;
             meshMaterial.enableInstancing = true;
-            meshMaterial.EnableKeyword("_VERTEX_COLORS");  // Enable vertex colors
-            meshMaterial.SetFloat("_UseVertexColor", 1.0f);  // Enable vertex color usage
+            meshMaterial.EnableKeyword("_VERTEX_COLORS");
+            meshMaterial.SetFloat("_UseVertexColor", 1.0f);
 
-            MeshRenderer renderer = GetComponent<MeshRenderer>();
-            if (renderer == null) {
-                renderer = gameObject.AddComponent<MeshRenderer>();
-            }
+            var renderer = GetComponent<MeshRenderer>() ?? gameObject.AddComponent<MeshRenderer>();
             renderer.material = meshMaterial;
         }
     }
@@ -50,39 +97,47 @@ public class DepthMeshGenerator : MonoBehaviour {
         this.width = width;
         this.height = height;
 
-        MeshFilter meshFilter = GetComponent<MeshFilter>();
-        if (meshFilter == null) {
-            meshFilter = gameObject.AddComponent<MeshFilter>();
-        }
+        InitializeMeshComponents();
+        InitializeBuffers();
+        SetupComputeShader();
 
-        MeshRenderer renderer = GetComponent<MeshRenderer>();
-        if (renderer == null) {
-            renderer = gameObject.AddComponent<MeshRenderer>();
-            renderer.material = meshMaterial;
-        }
+        isInitialized = true;
+    }
+
+    private void InitializeMeshComponents() {
+        var meshFilter = GetComponent<MeshFilter>() ?? gameObject.AddComponent<MeshFilter>();
 
         if (mesh == null) {
             mesh = new Mesh();
             mesh.MarkDynamic();
+            mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
             meshFilter.mesh = mesh;
         }
 
+        // Pre-allocate cached arrays
+        int vertexCount = width * height;
+        cachedVertices = new Vector3[vertexCount];
+        cachedUVs = new Vector2[vertexCount];
+        cachedColors = new Color32[vertexCount];
+        cachedColorFloat3 = new Vector3[vertexCount];
+        cachedTriangles = new int[(width - 1) * (height - 1) * 6]; // Maximum possible triangles
+    }
+
+    private void InitializeBuffers() {
         int vertexCount = width * height;
         int maxTriangleCount = (width - 1) * (height - 1) * 2;
         int maxIndexCount = maxTriangleCount * 3;
 
-        vertexBuffer?.Release();
-        uvBuffer?.Release();
-        triangleBuffer?.Release();
-        triangleCounterBuffer?.Release();
-        colorBuffer?.Release();
+        ReleaseBuffers();
 
         vertexBuffer = new ComputeBuffer(vertexCount, sizeof(float) * 3);
         uvBuffer = new ComputeBuffer(vertexCount, sizeof(float) * 2);
         triangleBuffer = new ComputeBuffer(maxIndexCount, sizeof(int));
         triangleCounterBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.Raw);
         colorBuffer = new ComputeBuffer(vertexCount, sizeof(float) * 3);
+    }
 
+    private void SetupComputeShader() {
         kernel = computeShader.FindKernel("GenerateMesh");
 
         computeShader.SetBuffer(kernel, "vertices", vertexBuffer);
@@ -95,262 +150,192 @@ public class DepthMeshGenerator : MonoBehaviour {
         computeShader.SetInt("height", height);
         computeShader.SetFloat("maxEdgeLength", maxEdgeLength);
         computeShader.SetFloat("maxSurfaceAngle", maxSurfaceAngle);
-
-        isInitialized = true;
     }
 
     public void UpdateMeshFromPointCloud(float[] pointData, byte[] colorData) {
+        if (!ValidateInput(pointData, colorData)) return;
+
+        try {
+            ProcessPointCloudData(pointData, colorData);
+        } catch (System.Exception e) {
+            Debug.LogError($"Error updating mesh: {e.Message}\n{e.StackTrace}");
+        }
+    }
+
+    private bool ValidateInput(float[] pointData, byte[] colorData) {
         if (!isInitialized) {
             Debug.LogError("PointCloudMeshGenerator not initialized! Call Initialize() first.");
-            return;
+            return false;
         }
 
         if (pointData.Length != width * height * 4 || colorData.Length != width * height * 3) {
             Debug.LogError($"Data length mismatch. Expected points: {width * height * 4}, got: {pointData.Length}. " +
                          $"Expected colors: {width * height * 3}, got: {colorData.Length}");
-            return;
+            return false;
         }
 
+        return true;
+    }
+
+    private void ProcessPointCloudData(float[] pointData, byte[] colorData) {
+        var vertexCount = width * height;
+
+        // Create native arrays for the job
+        var nativePointData = new NativeArray<float>(pointData, Allocator.TempJob);
+        var nativeColorData = new NativeArray<byte>(colorData, Allocator.TempJob);
+        var nativeVertices = new NativeArray<Vector3>(vertexCount, Allocator.TempJob);
+        var nativeUVs = new NativeArray<Vector2>(vertexCount, Allocator.TempJob);
+        var nativeColors = new NativeArray<Color32>(vertexCount, Allocator.TempJob);
+        var validityMask = new NativeArray<int>(vertexCount, Allocator.TempJob);
+
         try {
-            // First pass: identify valid vertices and create mapping
-            List<Vector3> validVertices = new List<Vector3>();
-            List<Vector2> validUVs = new List<Vector2>();
-            List<Color32> validColors = new List<Color32>();
-            Dictionary<int, int> oldToNewIndex = new Dictionary<int, int>();
+            // Schedule the parallel job
+            var processJob = new ProcessVerticesJob {
+                pointData = nativePointData,
+                colorData = nativeColorData,
+                vertices = nativeVertices,
+                uvs = nativeUVs,
+                colors = nativeColors,
+                validityMask = validityMask,
+                width = width,
+                height = height
+            };
 
-            for (int i = 0; i < width * height; i++) {
-                int baseIndex = i * 4;
-                int colorIndex = i * 3;
+            var jobHandle = processJob.Schedule(vertexCount, 64);
+            jobHandle.Complete();
 
-                float x = pointData[baseIndex];
-                float y = pointData[baseIndex + 1];
-                float z = pointData[baseIndex + 2];
+            // Get valid vertex count and create mapping
+            int validVertexCount = 0;
+            var oldToNewIndex = new Dictionary<int, int>();
 
-                if (!float.IsNaN(x) && !float.IsNaN(y) && !float.IsNaN(z)) {
-                    oldToNewIndex[i] = validVertices.Count;
-                    validVertices.Add(new Vector3(x, y, z));
-                    validUVs.Add(new Vector2((i % width) / (float)width, (i / width) / (float)height));
-
-                    // Add color
-                    validColors.Add(new Color32(
-                        colorData[colorIndex],
-                        colorData[colorIndex + 1],
-                        colorData[colorIndex + 2],
-                        255
-                    ));
+            for (int i = 0; i < vertexCount; i++) {
+                if (validityMask[i] == 1) {
+                    oldToNewIndex[i] = validVertexCount++;
                 }
             }
 
-            //Debug.Log($"Valid vertices: {validVertices.Count} out of {width * height}");
-
-            if (validVertices.Count == 0) {
+            if (validVertexCount == 0) {
                 Debug.LogWarning("No valid vertices found in point cloud data");
                 return;
             }
 
-            // Convert colors to float3 array for compute buffer
-            Vector3[] colorFloat3 = validColors.Select(c => new Vector3(c.r / 255f, c.g / 255f, c.b / 255f)).ToArray();
-
-            // Update compute shader buffers
-            vertexBuffer.SetData(validVertices.ToArray());
-            uvBuffer.SetData(validUVs.ToArray());
-            colorBuffer.SetData(colorFloat3);
-
-            // Reset triangle counter
-            int[] counterReset = new int[] { 0 };
-            triangleCounterBuffer.SetData(counterReset);
-
-            // Dispatch compute shader
-            computeShader.Dispatch(kernel, Mathf.CeilToInt(width / 8f), Mathf.CeilToInt(height / 8f), 1);
-
-            // Get triangle count
-            int[] triangleCount = new int[1];
-            triangleCounterBuffer.GetData(triangleCount);
-
-            if (triangleCount[0] > 0) {
-                // Get triangles
-                int[] triangles = new int[triangleCount[0]];
-                triangleBuffer.GetData(triangles, 0, 0, triangleCount[0]);
-
-                // Validate triangle indices
-                bool hasInvalidIndices = false;
-                List<int> validTriangles = new List<int>();
-
-                for (int i = 0; i < triangles.Length; i += 3) {
-                    // Check if all three indices of this triangle are valid
-                    if (triangles[i] < validVertices.Count &&
-                        triangles[i + 1] < validVertices.Count &&
-                        triangles[i + 2] < validVertices.Count &&
-                        triangles[i] >= 0 &&
-                        triangles[i + 1] >= 0 &&
-                        triangles[i + 2] >= 0) {
-                        validTriangles.Add(triangles[i]);
-                        validTriangles.Add(triangles[i + 1]);
-                        validTriangles.Add(triangles[i + 2]);
-                    } else {
-                        hasInvalidIndices = true;
-                    }
+            // Copy valid vertices to cached arrays
+            int currentIndex = 0;
+            for (int i = 0; i < vertexCount; i++) {
+                if (validityMask[i] == 1) {
+                    cachedVertices[currentIndex] = nativeVertices[i];
+                    cachedUVs[currentIndex] = nativeUVs[i];
+                    cachedColors[currentIndex] = nativeColors[i];
+                    cachedColorFloat3[currentIndex] = new Vector3(
+                        nativeColors[i].r / 255f,
+                        nativeColors[i].g / 255f,
+                        nativeColors[i].b / 255f
+                    );
+                    currentIndex++;
                 }
-
-                if (hasInvalidIndices) {
-                    Debug.LogWarning($"Filtered out some invalid triangle indices. Valid triangles: {validTriangles.Count / 3} out of {triangles.Length / 3}");
-                }
-
-                if (validTriangles.Count > 0) {
-                    // Keep existing mesh data if possible
-                    if (mesh.vertexCount != validVertices.Count) {
-                        mesh.Clear();
-                        mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-                        mesh.vertices = validVertices.ToArray();
-                        mesh.colors32 = validColors.ToArray();
-                        mesh.uv = validUVs.ToArray();
-                    }
-
-                    try {
-                        mesh.triangles = validTriangles.ToArray();
-                        mesh.RecalculateNormals();
-                        mesh.RecalculateBounds();
-                    } catch (System.Exception e) {
-                        Debug.LogError($"Error setting mesh triangles: {e.Message}");
-                        // Keep the mesh but clear triangles
-                        mesh.triangles = new int[0];
-                    }
-                } else {
-                    Debug.LogWarning("No valid triangles after index validation");
-                    // Keep the mesh but clear triangles
-                    mesh.triangles = new int[0];
-                }
-            } else {
-                Debug.LogWarning("No triangles generated from compute shader");
-                // Keep the mesh but clear triangles
-                mesh.triangles = new int[0];
             }
-        } catch (System.Exception e) {
-            Debug.LogError($"Error updating mesh: {e.Message}\n{e.StackTrace}");
+
+            UpdateMeshBuffers(validVertexCount);
+            GenerateAndUpdateMesh(validVertexCount);
+        } finally {
+            // Dispose native arrays
+            nativePointData.Dispose();
+            nativeColorData.Dispose();
+            nativeVertices.Dispose();
+            nativeUVs.Dispose();
+            nativeColors.Dispose();
+            validityMask.Dispose();
         }
     }
 
-    public void UpdateMeshFromPointCloud(float[] pointData) {
-        if (!isInitialized) {
-            Debug.LogError("PointCloudMeshGenerator not initialized! Call Initialize() first.");
-            return;
-        }
+    private void UpdateMeshBuffers(int validVertexCount) {
+        vertexBuffer.SetData(cachedVertices, 0, 0, validVertexCount);
+        uvBuffer.SetData(cachedUVs, 0, 0, validVertexCount);
+        colorBuffer.SetData(cachedColorFloat3, 0, 0, validVertexCount);
 
-        if (pointData.Length != width * height * 4) {
-            Debug.LogError($"Point cloud data length ({pointData.Length}) doesn't match initialized dimensions ({width * height * 4})");
-            return;
-        }
+        int[] counterReset = { 0 };
+        triangleCounterBuffer.SetData(counterReset);
 
-        try {
-            // First pass: identify valid vertices and create mapping
-            List<Vector3> validVertices = new List<Vector3>();
-            List<Vector2> validUVs = new List<Vector2>();
-            Dictionary<int, int> oldToNewIndex = new Dictionary<int, int>();
+        computeShader.Dispatch(kernel, Mathf.CeilToInt(width / 8f), Mathf.CeilToInt(height / 8f), 1);
+    }
 
-            for (int i = 0; i < width * height; i++) {
-                int baseIndex = i * 4;
-                float x = pointData[baseIndex];
-                float y = pointData[baseIndex + 1];
-                float z = pointData[baseIndex + 2];
+    private void GenerateAndUpdateMesh(int validVertexCount) {
+        int[] triangleCount = new int[1];
+        triangleCounterBuffer.GetData(triangleCount);
 
-                if (!float.IsNaN(x) && !float.IsNaN(y) && !float.IsNaN(z)) {
-                    oldToNewIndex[i] = validVertices.Count;
-                    validVertices.Add(new Vector3(x, y, z));
-                    validUVs.Add(new Vector2((i % width) / (float)width, (i / width) / (float)height));
-                }
+        if (triangleCount[0] > 0) {
+            triangleBuffer.GetData(cachedTriangles, 0, 0, triangleCount[0]);
+
+            // Validate and update mesh
+            if (ValidateAndUpdateMeshTriangles(validVertexCount, triangleCount[0])) {
+                mesh.RecalculateNormals();
+                mesh.RecalculateBounds();
             }
-
-            //Debug.Log($"Valid vertices: {validVertices.Count} out of {width * height}");
-
-            if (validVertices.Count == 0) {
-                Debug.LogWarning("No valid vertices found in point cloud data");
-                return;
-            }
-
-            // Update compute shader with valid vertices
-            vertexBuffer.SetData(validVertices.ToArray());
-            uvBuffer.SetData(validUVs.ToArray());
-
-            // Reset triangle counter
-            int[] counterReset = new int[] { 0 };
-            triangleCounterBuffer.SetData(counterReset);
-
-            // Dispatch compute shader
-            computeShader.Dispatch(kernel, Mathf.CeilToInt(width / 8f), Mathf.CeilToInt(height / 8f), 1);
-
-            // Get triangle count
-            int[] triangleCount = new int[1];
-            triangleCounterBuffer.GetData(triangleCount);
-
-            if (triangleCount[0] > 0) {
-                // Get triangles
-                int[] triangles = new int[triangleCount[0]];
-                triangleBuffer.GetData(triangles, 0, 0, triangleCount[0]);
-
-                // Validate triangle indices
-                bool hasInvalidIndices = false;
-                List<int> validTriangles = new List<int>();
-
-                for (int i = 0; i < triangles.Length; i += 3) {
-                    // Check if all three indices of this triangle are valid
-                    if (triangles[i] < validVertices.Count &&
-                        triangles[i + 1] < validVertices.Count &&
-                        triangles[i + 2] < validVertices.Count &&
-                        triangles[i] >= 0 &&
-                        triangles[i + 1] >= 0 &&
-                        triangles[i + 2] >= 0) {
-                        validTriangles.Add(triangles[i]);
-                        validTriangles.Add(triangles[i + 1]);
-                        validTriangles.Add(triangles[i + 2]);
-                    } else {
-                        hasInvalidIndices = true;
-                    }
-                }
-
-                if (hasInvalidIndices) {
-                    Debug.LogWarning($"Filtered out some invalid triangle indices. Valid triangles: {validTriangles.Count / 3} out of {triangles.Length / 3}");
-                }
-
-                if (validTriangles.Count > 0) {
-                    // Keep existing mesh data if possible
-                    if (mesh.vertexCount != validVertices.Count) {
-                        mesh.Clear();
-                        mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-                        mesh.vertices = validVertices.ToArray();
-                        mesh.uv = validUVs.ToArray();
-                    }
-
-                    try {
-                        mesh.triangles = validTriangles.ToArray();
-                        mesh.RecalculateNormals();
-                        mesh.RecalculateBounds();
-                    } catch (System.Exception e) {
-                        Debug.LogError($"Error setting mesh triangles: {e.Message}");
-                        // Keep the mesh but clear triangles
-                        mesh.triangles = new int[0];
-                    }
-                } else {
-                    Debug.LogWarning("No valid triangles after index validation");
-                    // Keep the mesh but clear triangles
-                    mesh.triangles = new int[0];
-                }
-            } else {
-                Debug.LogWarning("No triangles generated from compute shader");
-                // Keep the mesh but clear triangles
-                mesh.triangles = new int[0];
-            }
-        } catch (System.Exception e) {
-            Debug.LogError($"Error updating mesh: {e.Message}\n{e.StackTrace}");
+        } else {
+            Debug.LogWarning("No triangles generated from compute shader");
+            mesh.triangles = new int[0];
         }
     }
 
-    private void OnDestroy() {
+    private bool ValidateAndUpdateMeshTriangles(int validVertexCount, int triangleCount) {
+        bool hasInvalidIndices = false;
+        int validTriangleCount = 0;
+
+        for (int i = 0; i < triangleCount; i += 3) {
+            if (cachedTriangles[i] < validVertexCount &&
+                cachedTriangles[i + 1] < validVertexCount &&
+                cachedTriangles[i + 2] < validVertexCount &&
+                cachedTriangles[i] >= 0 &&
+                cachedTriangles[i + 1] >= 0 &&
+                cachedTriangles[i + 2] >= 0) {
+
+                if (i != validTriangleCount) {
+                    // Only copy if the position is different
+                    cachedTriangles[validTriangleCount] = cachedTriangles[i];
+                    cachedTriangles[validTriangleCount + 1] = cachedTriangles[i + 1];
+                    cachedTriangles[validTriangleCount + 2] = cachedTriangles[i + 2];
+                }
+                validTriangleCount += 3;
+            } else {
+                hasInvalidIndices = true;
+            }
+        }
+
+        if (hasInvalidIndices) {
+            Debug.LogWarning($"Filtered out some invalid triangle indices. Valid triangles: {validTriangleCount / 3} out of {triangleCount / 3}");
+        }
+
+        if (validTriangleCount > 0) {
+            try {
+                // Update mesh data
+                if (mesh.vertexCount != validVertexCount) {
+                    mesh.Clear();
+                    mesh.vertices = cachedVertices;
+                    mesh.colors32 = cachedColors;
+                    mesh.uv = cachedUVs;
+                }
+
+                mesh.triangles = cachedTriangles;
+                return true;
+            } catch (System.Exception e) {
+                Debug.LogError($"Error setting mesh triangles: {e.Message}");
+                mesh.triangles = new int[0];
+            }
+        }
+
+        return false;
+    }
+
+    private void ReleaseBuffers() {
         vertexBuffer?.Release();
         uvBuffer?.Release();
         triangleBuffer?.Release();
         triangleCounterBuffer?.Release();
         colorBuffer?.Release();
+    }
 
+    private void OnDestroy() {
+        ReleaseBuffers();
         if (mesh != null) {
             Destroy(mesh);
         }
