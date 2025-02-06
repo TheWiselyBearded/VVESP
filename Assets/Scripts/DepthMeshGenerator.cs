@@ -35,6 +35,12 @@ public class DepthMeshGenerator : MonoBehaviour {
     private Vector3[] cachedColorFloat3;
     private int[] cachedTriangles;
 
+    private ComputeBuffer normalBuffer;
+    private ComputeBuffer validVertexBuffer;
+    private Vector3[] cachedNormals;
+    private int normalizeKernel;
+
+
     // Job struct for parallel vertex processing
     [BurstCompile]
     private struct ProcessVerticesJob : IJobParallelFor {
@@ -131,20 +137,33 @@ public class DepthMeshGenerator : MonoBehaviour {
         ReleaseBuffers();
 
         vertexBuffer = new ComputeBuffer(vertexCount, sizeof(float) * 3);
+        normalBuffer = new ComputeBuffer(vertexCount, sizeof(float) * 3);
         uvBuffer = new ComputeBuffer(vertexCount, sizeof(float) * 2);
         triangleBuffer = new ComputeBuffer(maxIndexCount, sizeof(int));
         triangleCounterBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.Raw);
         colorBuffer = new ComputeBuffer(vertexCount, sizeof(float) * 3);
+        validVertexBuffer = new ComputeBuffer(vertexCount, sizeof(int));
+
+        // Pre-allocate cached arrays
+        cachedNormals = new Vector3[vertexCount];
     }
 
     private void SetupComputeShader() {
         kernel = computeShader.FindKernel("GenerateMesh");
+        normalizeKernel = computeShader.FindKernel("NormalizeMesh");
 
+        // Set buffers for main kernel
         computeShader.SetBuffer(kernel, "vertices", vertexBuffer);
+        computeShader.SetBuffer(kernel, "normals", normalBuffer);
         computeShader.SetBuffer(kernel, "uvs", uvBuffer);
         computeShader.SetBuffer(kernel, "triangles", triangleBuffer);
         computeShader.SetBuffer(kernel, "triangleCounter", triangleCounterBuffer);
         computeShader.SetBuffer(kernel, "colors", colorBuffer);
+        computeShader.SetBuffer(kernel, "validVertexMask", validVertexBuffer);
+
+        // Set buffers for normalize kernel
+        computeShader.SetBuffer(normalizeKernel, "normals", normalBuffer);
+        computeShader.SetBuffer(normalizeKernel, "validVertexMask", validVertexBuffer);
 
         computeShader.SetInt("width", width);
         computeShader.SetInt("height", height);
@@ -249,14 +268,29 @@ public class DepthMeshGenerator : MonoBehaviour {
     }
 
     private void UpdateMeshBuffers(int validVertexCount) {
+        // Clear buffers
+        var clearNormals = new Vector3[validVertexCount];
+        var clearValidMask = new int[validVertexCount];
+        normalBuffer.SetData(clearNormals);
+        validVertexBuffer.SetData(clearValidMask);
+
+        // Set vertex data
         vertexBuffer.SetData(cachedVertices, 0, 0, validVertexCount);
         uvBuffer.SetData(cachedUVs, 0, 0, validVertexCount);
         colorBuffer.SetData(cachedColorFloat3, 0, 0, validVertexCount);
 
+        // Reset triangle counter
         int[] counterReset = { 0 };
         triangleCounterBuffer.SetData(counterReset);
 
+        // Generate mesh and calculate initial normals
         computeShader.Dispatch(kernel, Mathf.CeilToInt(width / 8f), Mathf.CeilToInt(height / 8f), 1);
+
+        // Normalize the normals
+        computeShader.Dispatch(normalizeKernel, Mathf.CeilToInt(validVertexCount / 64f), 1, 1);
+
+        // Get computed normals
+        normalBuffer.GetData(cachedNormals, 0, 0, validVertexCount);
     }
 
     private void GenerateAndUpdateMesh(int validVertexCount) {
@@ -268,7 +302,7 @@ public class DepthMeshGenerator : MonoBehaviour {
 
             // Validate and update mesh
             if (ValidateAndUpdateMeshTriangles(validVertexCount, triangleCount[0])) {
-                mesh.RecalculateNormals();
+                //mesh.RecalculateNormals();
                 mesh.RecalculateBounds();
             }
         } else {
@@ -278,60 +312,36 @@ public class DepthMeshGenerator : MonoBehaviour {
     }
 
     private bool ValidateAndUpdateMeshTriangles(int validVertexCount, int triangleCount) {
-        bool hasInvalidIndices = false;
-        int validTriangleCount = 0;
-
-        for (int i = 0; i < triangleCount; i += 3) {
-            if (cachedTriangles[i] < validVertexCount &&
-                cachedTriangles[i + 1] < validVertexCount &&
-                cachedTriangles[i + 2] < validVertexCount &&
-                cachedTriangles[i] >= 0 &&
-                cachedTriangles[i + 1] >= 0 &&
-                cachedTriangles[i + 2] >= 0) {
-
-                if (i != validTriangleCount) {
-                    // Only copy if the position is different
-                    cachedTriangles[validTriangleCount] = cachedTriangles[i];
-                    cachedTriangles[validTriangleCount + 1] = cachedTriangles[i + 1];
-                    cachedTriangles[validTriangleCount + 2] = cachedTriangles[i + 2];
-                }
-                validTriangleCount += 3;
-            } else {
-                hasInvalidIndices = true;
-            }
-        }
-
-        if (hasInvalidIndices) {
-            Debug.LogWarning($"Filtered out some invalid triangle indices. Valid triangles: {validTriangleCount / 3} out of {triangleCount / 3}");
-        }
-
-        if (validTriangleCount > 0) {
+        if (triangleCount > 0) {
             try {
-                // Update mesh data
                 if (mesh.vertexCount != validVertexCount) {
                     mesh.Clear();
                     mesh.vertices = cachedVertices;
                     mesh.colors32 = cachedColors;
                     mesh.uv = cachedUVs;
+                    mesh.normals = cachedNormals;  // Set the computed normals
                 }
 
                 mesh.triangles = cachedTriangles;
+                mesh.RecalculateBounds();
+                // Remove mesh.RecalculateNormals() since we're computing them in the shader
                 return true;
             } catch (System.Exception e) {
                 Debug.LogError($"Error setting mesh triangles: {e.Message}");
                 mesh.triangles = new int[0];
             }
         }
-
         return false;
     }
 
     private void ReleaseBuffers() {
         vertexBuffer?.Release();
+        normalBuffer?.Release();
         uvBuffer?.Release();
         triangleBuffer?.Release();
         triangleCounterBuffer?.Release();
         colorBuffer?.Release();
+        validVertexBuffer?.Release();
     }
 
     private void OnDestroy() {

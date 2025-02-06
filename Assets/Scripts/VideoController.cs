@@ -12,8 +12,8 @@ public class VideoController : MonoBehaviour
     void Start()
     {
         playbackDirection = 0;
-        Application.targetFrameRate = 24;
-        Debug.Log($"Application.targetFrameRate {Application.targetFrameRate}");
+        //Application.targetFrameRate = 24;
+        //Debug.Log($"Application.targetFrameRate {Application.targetFrameRate}");
         //Application.targetFrameRate = 30;
         startRendering = false;
         if (videoPlayer == null) videoPlayer = FindObjectOfType<Record3DPlayback>(); // gameObject.GetComponent<Record3DPlayback>();

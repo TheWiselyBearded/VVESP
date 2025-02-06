@@ -1,25 +1,26 @@
 #pragma kernel GenerateMesh
+#pragma kernel NormalizeMesh
 
 RWStructuredBuffer<float3> vertices;
+RWStructuredBuffer<float3> normals;
 RWStructuredBuffer<float2> uvs;
 RWStructuredBuffer<int> triangles;
 RWStructuredBuffer<int> triangleCounter;
-RWStructuredBuffer<float3> colors;  // RGB colors as float3
+RWStructuredBuffer<float3> colors;
+RWStructuredBuffer<int> validVertexMask;
 
 uint width;
 uint height;
 float maxEdgeLength;
 float maxSurfaceAngle;
 
-float3 CalculateNormal(float3 v1, float3 v2, float3 v3)
-{
+float3 CalculateNormal(float3 v1, float3 v2, float3 v3) {
     float3 edge1 = v2 - v1;
     float3 edge2 = v3 - v1;
     return normalize(cross(edge1, edge2));
 }
 
-bool IsValidTriangle(float3 v1, float3 v2, float3 v3)
-{
+bool IsValidTriangle(float3 v1, float3 v2, float3 v3) {
     // Check edge lengths
     float edge1Length = length(v2 - v1);
     float edge2Length = length(v3 - v2);
@@ -37,8 +38,7 @@ bool IsValidTriangle(float3 v1, float3 v2, float3 v3)
 }
 
 [numthreads(8,8,1)]
-void GenerateMesh(uint3 id : SV_DispatchThreadID)
-{
+void GenerateMesh(uint3 id : SV_DispatchThreadID) {
     if (id.x >= width-1 || id.y >= height-1)
         return;
     
@@ -47,35 +47,64 @@ void GenerateMesh(uint3 id : SV_DispatchThreadID)
     uint bottomPixel = (id.y + 1) * width + id.x;
     uint bottomRightPixel = bottomPixel + 1;
     
-    // Get vertices and colors
+    // Get vertices
     float3 v00 = vertices[currentPixel];
     float3 v10 = vertices[rightPixel];
     float3 v01 = vertices[bottomPixel];
     float3 v11 = vertices[bottomRightPixel];
     
-    float3 c00 = colors[currentPixel];
-    float3 c10 = colors[rightPixel];
-    float3 c01 = colors[bottomPixel];
-    float3 c11 = colors[bottomRightPixel];
-    
-    // Try to create triangles
-    if (IsValidTriangle(v00, v01, v10))
-    {
+    // Process first triangle
+    if (IsValidTriangle(v00, v01, v10)) {
         uint triIndex;
         InterlockedAdd(triangleCounter[0], 3, triIndex);
         
         triangles[triIndex] = currentPixel;
         triangles[triIndex + 1] = bottomPixel;
         triangles[triIndex + 2] = rightPixel;
+        
+        // Store normal contribution
+        float3 normal = CalculateNormal(v00, v01, v10);
+        normals[currentPixel] = normal;
+        normals[bottomPixel] = normal;
+        normals[rightPixel] = normal;
+        
+        // Mark vertices as valid
+        validVertexMask[currentPixel] = 1;
+        validVertexMask[bottomPixel] = 1;
+        validVertexMask[rightPixel] = 1;
     }
     
-    if (IsValidTriangle(v10, v01, v11))
-    {
+    // Process second triangle
+    if (IsValidTriangle(v10, v01, v11)) {
         uint triIndex;
         InterlockedAdd(triangleCounter[0], 3, triIndex);
         
         triangles[triIndex] = rightPixel;
         triangles[triIndex + 1] = bottomPixel;
         triangles[triIndex + 2] = bottomRightPixel;
+        
+        // Store normal contribution
+        float3 normal = CalculateNormal(v10, v01, v11);
+        normals[rightPixel] = normal;
+        normals[bottomPixel] = normal;
+        normals[bottomRightPixel] = normal;
+        
+        // Mark vertices as valid
+        validVertexMask[rightPixel] = 1;
+        validVertexMask[bottomPixel] = 1;
+        validVertexMask[bottomRightPixel] = 1;
+    }
+}
+
+// Separate kernel for normal normalization
+[numthreads(64,1,1)]
+void NormalizeMesh(uint3 id : SV_DispatchThreadID) {
+    uint index = id.x;
+    if (index >= width * height || validVertexMask[index] == 0)
+        return;
+    
+    float3 normal = normals[index];
+    if (length(normal) > 0.001f) {
+        normals[index] = normalize(normal);
     }
 }

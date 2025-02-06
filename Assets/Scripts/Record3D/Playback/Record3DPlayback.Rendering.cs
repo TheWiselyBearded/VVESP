@@ -71,7 +71,7 @@ public partial class Record3DPlayback
         _ = currentVideo_.LoadFrameDataAsync(frameNumber);
 
         currentFrame_ = frameNumber;
-        UpdateTexturesFromCurrentVideo();
+        //UpdateTexturesFromCurrentVideo();
     }
 
     public async void LoadFrameAsync(int frameNumber)
@@ -109,6 +109,8 @@ public partial class Record3DPlayback
             colorTexBG.Apply(false, false);
         }
     }
+
+
 
     //void UpdateFromTextures(Texture2D colorTex, Texture2D depthTex) =>
     //    meshGenerator.UpdateMeshFromTextures(colorTex, depthTex);

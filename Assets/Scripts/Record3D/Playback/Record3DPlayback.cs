@@ -103,7 +103,7 @@ public partial class Record3DPlayback : MonoBehaviour {
     #region Unity Update
     private void Update() {
         if (shouldRefresh_) {
-            UpdateTexturesFromCurrentVideo();
+            //UpdateTexturesFromCurrentVideo();
             shouldRefresh_ = false;
         }
     }
